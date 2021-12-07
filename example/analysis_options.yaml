@@ -1,0 +1,8 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    sort_constructors_first: true
+    sort_unnamed_constructors_first: true
+    avoid_void_async: true
+    avoid_function_literals_in_foreach_calls: false
