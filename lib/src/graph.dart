@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:ulid/ulid.dart';
 
+typedef NodeWidgetBuilder = Widget Function(
+    BuildContext context, GraphNode node);
+
 var kCrossAxisSpace = 48.0;
 var kMainAxisSpace = 144.0;
 
@@ -21,6 +24,8 @@ class Graph {
 
   Size computeSize() => root.element.familySize;
 
+  GraphNode nodeAt(int index) => nodes[index];
+
   void layout() {
     //reset nodes position
     for (var node in nodes) {
@@ -34,8 +39,6 @@ class Graph {
     //spread layout node
     _dfsSpreadNodes(root.element);
   }
-
-  GraphNode nodeAt(int index) => nodes[index];
 
   //dfs
   void _dfsSpreadNodes(GraphNodeElement root) {
@@ -175,17 +178,38 @@ class GraphNode<T> {
   }
 
   GraphNodeElement initialElement({required Widget child}) {
-    _element = GraphNodeElement(node: this, widget: child);
+    _element = GraphNodeElement(
+      node: this,
+      widget: child,
+    );
     return _element;
   }
+}
+
+class PreviewGraphNode extends GraphNode {
+  PreviewGraphNode() : super(data: '#preview') {
+    _element = GraphNodeElement(
+        node: this,
+        widget: Container(
+          width: 60,
+          height: 24,
+          color: Colors.lightBlue,
+        ));
+  }
+}
+
+class GraphNodeFactory<T> {
+  GraphNodeFactory({required this.dataBuilder});
+
+  final T Function() dataBuilder;
+
+  GraphNode createNode() => GraphNode(data: dataBuilder());
 }
 
 class GraphNodeElement {
   GraphNodeElement(
       {required this.node,
       required this.widget,
-      List<GraphNodeElement>? preList,
-      List<GraphNodeElement>? nextList,
       this.position = RelativeRect.fill,
       this.familyPosition = RelativeRect.fill});
 

@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import 'graph.dart';
 import 'render/board_render.dart';
 
-typedef NodeWidgetBuilder = Widget Function(
-    BuildContext context, GraphNode node);
-
 class FlowGraphView extends StatelessWidget {
   const FlowGraphView(
       {Key? key,

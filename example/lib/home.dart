@@ -1,3 +1,4 @@
+import 'package:example/dragdrop_node_page.dart';
 import 'package:flutter/material.dart';
 
 import 'dag_flow_page.dart';
@@ -37,9 +38,31 @@ class _HomePageState extends State<HomePage> {
                       size: 48,
                     ),
                     SizedBox(
-                      height: 8,
+                      height: 16,
                     ),
                     Text('DAG-Flow'),
+                  ],
+                ),
+              ),
+            ),
+            Card(
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => DragDropNodePage()));
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: const [
+                    Icon(
+                      Icons.widgets,
+                      size: 48,
+                    ),
+                    SizedBox(
+                      height: 16,
+                    ),
+                    Text('Draggable-Flow'),
                   ],
                 ),
               ),

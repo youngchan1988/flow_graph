@@ -31,13 +31,26 @@ class RenderLayoutBox extends RenderBox
         RenderBoxContainerDefaultsMixin<RenderBox, NodeParentData> {
   RenderLayoutBox({
     required Graph graph,
-  }) : _graph = graph;
+  }) : _graph = graph {
+    // _graph.addListener(() {
+    //   //need layout
+    //   debugInObject(object: this, message: 'Listener: graph layout changed');
+    //   markNeedsLayout();
+    // });
+  }
 
   late Graph _graph;
 
   set graph(Graph g) {
-    _graph = g;
-    markNeedsLayout();
+    if (g != _graph) {
+      _graph = g;
+      // _graph.addListener(() {
+      //   debugInObject(object: this, message: 'Listener: graph layout changed');
+      //   markNeedsLayout();
+      // });
+      markNeedsLayout();
+    }
+    // markNeedsLayout();
   }
 
   Graph get graph => _graph;
@@ -55,8 +68,10 @@ class RenderLayoutBox extends RenderBox
     var index = 0;
     while (child != null) {
       final childData = child.parentData as NodeParentData;
-      child.layout(constraints, parentUsesSize: true);
-      var childSize = child.getDryLayout(constraints);
+      child.layout(BoxConstraints.loose(constraints.biggest),
+          parentUsesSize: true);
+      var childSize = child.size;
+      debugInObject(object: this, message: 'ChildSize: $childSize');
       var element = graph.nodeAt(index).element;
       element.position =
           RelativeRect.fromLTRB(0, 0, childSize.width, childSize.height);
@@ -67,6 +82,15 @@ class RenderLayoutBox extends RenderBox
 
     //compute graph nodes position
     graph.layout();
+    var graphSize = graph.computeSize();
+    debugInObject(object: this, message: 'GraphSize: $graphSize');
+    size = Size(
+        graphSize.width > constraints.maxWidth
+            ? graphSize.width
+            : constraints.maxWidth,
+        graphSize.height > constraints.maxHeight
+            ? graphSize.height
+            : constraints.maxHeight);
 
     //layout child's offset
     child = firstChild;
@@ -79,28 +103,10 @@ class RenderLayoutBox extends RenderBox
       child = childData.nextSibling;
       index++;
     }
-    super.performLayout();
-  }
-
-  @override
-  void performResize() {
-    debugInObject(object: this, message: 'performResize');
-    super.performResize();
-  }
-
-  @override
-  bool get sizedByParent => true;
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) {
-    var size = graph.computeSize();
-    debugInObject(object: this, message: 'computeDryLayout: $size');
-    return size;
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    debugInObject(object: this, message: 'paint offset: $offset');
     var canvas = context.canvas;
     canvas.save();
     canvas.translate(offset.dx, offset.dy);

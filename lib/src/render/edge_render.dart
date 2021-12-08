@@ -57,9 +57,9 @@ class EdgeRender {
         var childElement = child.element;
         if (graph.direction == Axis.horizontal) {
           var start = Offset(nodeElement.position.right,
-              nodeElement.position.top + _connectPointOffset);
+              (nodeElement.position.top + nodeElement.position.bottom) / 2);
           var end = Offset(childElement.position.left,
-              childElement.position.top + _connectPointOffset);
+              (childElement.position.top + childElement.position.bottom) / 2);
           _linePath.moveTo(start.dx, start.dy);
           _linePath.cubicTo(
               start.dx + kMainAxisSpace / 2,
@@ -68,7 +68,22 @@ class EdgeRender {
               end.dy,
               end.dx - triangleArrowHeight,
               end.dy);
-        } else if (graph.direction == Axis.vertical) {}
+        } else if (graph.direction == Axis.vertical) {
+          var start = Offset(
+              (nodeElement.position.left + nodeElement.position.right) / 2,
+              nodeElement.position.bottom);
+          var end = Offset(
+              (childElement.position.left + childElement.position.right) / 2,
+              childElement.position.top);
+          _linePath.moveTo(start.dx, start.dy);
+          _linePath.cubicTo(
+              start.dx,
+              start.dy + kMainAxisSpace / 2,
+              end.dx,
+              end.dy - kMainAxisSpace / 2,
+              end.dx,
+              end.dy - triangleArrowHeight);
+        }
         canvas.drawPath(_linePath, _paint);
         _drawTriArrow(canvas, _linePath, _trianglePaint);
       });
