@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../graph.dart';
 
-const _connectPointOffset = 8;
+const _kNodeEdgeSpacing = 12;
 
 double triangleArrowHeight = 8.0;
 
@@ -49,16 +49,19 @@ class EdgeRender {
     canvas.drawPath(triPath, paint);
   }
 
-  void render({required Canvas canvas, required Graph graph}) {
+  void render(
+      {required BuildContext context,
+      required Canvas canvas,
+      required Graph graph}) {
     graph.nodes.forEach((node) {
       var nodeElement = node.element;
       node.nextList.forEach((child) {
         _linePath.reset();
         var childElement = child.element;
         if (graph.direction == Axis.horizontal) {
-          var start = Offset(nodeElement.position.right,
+          var start = Offset(nodeElement.position.right - _kNodeEdgeSpacing,
               (nodeElement.position.top + nodeElement.position.bottom) / 2);
-          var end = Offset(childElement.position.left,
+          var end = Offset(childElement.position.left + _kNodeEdgeSpacing,
               (childElement.position.top + childElement.position.bottom) / 2);
           _linePath.moveTo(start.dx, start.dy);
           _linePath.cubicTo(
@@ -71,10 +74,10 @@ class EdgeRender {
         } else if (graph.direction == Axis.vertical) {
           var start = Offset(
               (nodeElement.position.left + nodeElement.position.right) / 2,
-              nodeElement.position.bottom);
+              nodeElement.position.bottom - _kNodeEdgeSpacing);
           var end = Offset(
               (childElement.position.left + childElement.position.right) / 2,
-              childElement.position.top);
+              childElement.position.top + _kNodeEdgeSpacing);
           _linePath.moveTo(start.dx, start.dy);
           _linePath.cubicTo(
               start.dx,
@@ -83,6 +86,13 @@ class EdgeRender {
               end.dy - kMainAxisSpace / 2,
               end.dx,
               end.dy - triangleArrowHeight);
+        }
+        if (child is PreviewGraphNode) {
+          _paint.color = Theme.of(context).colorScheme.secondary;
+          _trianglePaint.color = Theme.of(context).colorScheme.secondary;
+        } else {
+          _paint.color = Colors.grey;
+          _trianglePaint.color = Colors.grey;
         }
         canvas.drawPath(_linePath, _paint);
         _drawTriArrow(canvas, _linePath, _trianglePaint);

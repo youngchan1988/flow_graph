@@ -1,3 +1,4 @@
+import 'package:flow_graph/src/render/preview_connect_render.dart';
 import 'package:flow_graph/src/support/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -6,56 +7,67 @@ import '../graph.dart';
 import 'edge_render.dart';
 
 class GraphBoard extends MultiChildRenderObjectWidget {
-  GraphBoard({Key? key, required this.graph})
+  GraphBoard(
+      {Key? key,
+      required this.graph,
+      this.previewConnectStart = Offset.zero,
+      this.previewConnectEnd = Offset.zero})
       : super(key: key, children: graph.children);
 
   final Graph graph;
+  final Offset previewConnectStart;
+  final Offset previewConnectEnd;
 
   @override
   RenderBox createRenderObject(BuildContext context) {
     debugInObject(object: this, message: 'createRenderObject');
-    return RenderLayoutBox(graph: graph);
+    return _RenderLayoutBox(context: context, graph: graph);
   }
 
   @override
   void updateRenderObject(
-      BuildContext context, covariant RenderLayoutBox renderObject) {
+      BuildContext context, covariant _RenderLayoutBox renderObject) {
     debugInObject(object: this, message: 'updateRenderObject');
     renderObject.graph = graph;
+    renderObject.previewConnectStart = previewConnectStart;
+    renderObject.previewConnectEnd = previewConnectEnd;
   }
 }
 
-class RenderLayoutBox extends RenderBox
+class _RenderLayoutBox extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, NodeParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, NodeParentData> {
-  RenderLayoutBox({
+  _RenderLayoutBox({
+    required this.context,
     required Graph graph,
-  }) : _graph = graph {
-    // _graph.addListener(() {
-    //   //need layout
-    //   debugInObject(object: this, message: 'Listener: graph layout changed');
-    //   markNeedsLayout();
-    // });
+  }) : _graph = graph;
+
+  final BuildContext context;
+  Offset _previewConnectStart = Offset.zero;
+  Offset _previewConnectEnd = Offset.zero;
+  late Graph _graph;
+
+  set previewConnectStart(Offset position) {
+    _previewConnectStart = position;
   }
 
-  late Graph _graph;
+  set previewConnectEnd(Offset position) {
+    _previewConnectEnd = position;
+  }
 
   set graph(Graph g) {
     if (g != _graph) {
       _graph = g;
-      // _graph.addListener(() {
-      //   debugInObject(object: this, message: 'Listener: graph layout changed');
-      //   markNeedsLayout();
-      // });
       markNeedsLayout();
     }
-    // markNeedsLayout();
   }
 
   Graph get graph => _graph;
 
   final _edgeRender = EdgeRender();
+
+  final _previewConnectRender = PreviewConnectRender();
 
   @override
   void performLayout() {
@@ -66,12 +78,12 @@ class RenderLayoutBox extends RenderBox
     //initial child element size
     var child = firstChild;
     var index = 0;
+    var screenSize = MediaQuery.of(context).size;
     while (child != null) {
       final childData = child.parentData as NodeParentData;
-      child.layout(BoxConstraints.loose(constraints.biggest),
-          parentUsesSize: true);
+
+      child.layout(BoxConstraints.loose(screenSize), parentUsesSize: true);
       var childSize = child.size;
-      debugInObject(object: this, message: 'ChildSize: $childSize');
       var element = graph.nodeAt(index).element;
       element.position =
           RelativeRect.fromLTRB(0, 0, childSize.width, childSize.height);
@@ -84,13 +96,13 @@ class RenderLayoutBox extends RenderBox
     graph.layout();
     var graphSize = graph.computeSize();
     debugInObject(object: this, message: 'GraphSize: $graphSize');
-    size = Size(
-        graphSize.width > constraints.maxWidth
-            ? graphSize.width
-            : constraints.maxWidth,
+    var canvasSize = Size(
+        graphSize.width > screenSize.width ? graphSize.width : screenSize.width,
         graphSize.height > constraints.maxHeight
             ? graphSize.height
             : constraints.maxHeight);
+    // additionalConstraints = BoxConstraints.loose(canvasSize);
+    size = canvasSize;
 
     //layout child's offset
     child = firstChild;
@@ -107,14 +119,24 @@ class RenderLayoutBox extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    debugInObject(object: this, message: 'paint');
     var canvas = context.canvas;
+
     canvas.save();
     canvas.translate(offset.dx, offset.dy);
-
-    _edgeRender.render(canvas: canvas, graph: graph);
-
+    _edgeRender.render(context: this.context, canvas: canvas, graph: _graph);
     canvas.restore();
-
+    if (_previewConnectStart.distance > 0 && _previewConnectEnd.distance > 0) {
+      canvas.save();
+      canvas.translate(offset.dx, offset.dy);
+      _previewConnectRender.rend(
+          context: this.context,
+          canvas: canvas,
+          start: _previewConnectStart,
+          end: _previewConnectEnd,
+          direction: _graph.direction);
+      canvas.restore();
+    }
     defaultPaint(context, offset);
   }
 
@@ -128,6 +150,9 @@ class RenderLayoutBox extends RenderBox
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
       defaultHitTestChildren(result, position: position);
+
+  @override
+  bool hitTestSelf(Offset position) => true;
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {

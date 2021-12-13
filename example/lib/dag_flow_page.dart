@@ -44,7 +44,7 @@ class _DagFlowPageState extends State<DagFlowPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('BluePrints'),
+        title: Text('Flow'),
       ),
       body: FlowGraphView(
         root: root,

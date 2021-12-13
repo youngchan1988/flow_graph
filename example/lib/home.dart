@@ -1,7 +1,7 @@
-import 'package:example/dragdrop_node_page.dart';
 import 'package:flutter/material.dart';
 
 import 'dag_flow_page.dart';
+import 'draggable_node_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -49,7 +49,7 @@ class _HomePageState extends State<HomePage> {
               child: InkWell(
                 onTap: () {
                   Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => DragDropNodePage()));
+                      builder: (context) => DraggableNodePage()));
                 },
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

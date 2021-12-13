@@ -3,8 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:ulid/ulid.dart';
 
-typedef NodeWidgetBuilder = Widget Function(
-    BuildContext context, GraphNode node);
+typedef NodeWidgetBuilder<T> = Widget Function(
+    BuildContext context, GraphNode<T> node);
+
+typedef WillConnect<T> = bool Function(GraphNode<T> node);
+typedef WillAccept<T> = bool Function(GraphNode<T> node);
 
 var kCrossAxisSpace = 48.0;
 var kMainAxisSpace = 144.0;
@@ -25,6 +28,15 @@ class Graph {
   Size computeSize() => root.element.familySize;
 
   GraphNode nodeAt(int index) => nodes[index];
+
+  GraphNode<T>? nodeOf<T>(Offset position) {
+    for (var node in nodes) {
+      if (node.element.position.contain(position)) {
+        return node as GraphNode<T>;
+      }
+    }
+    return null;
+  }
 
   void layout() {
     //reset nodes position
@@ -149,22 +161,28 @@ class Graph {
 
 class GraphNode<T> {
   GraphNode(
-      {required this.data,
+      {this.data,
       this.isRoot = false,
+      FocusNode? focusNode,
       List<GraphNode>? prevList,
       List<GraphNode>? nextList})
       : id = Ulid().hashCode,
+        _focusNode = focusNode,
         _prevList = prevList,
         _nextList = nextList;
 
   final int id;
-  T data;
+  T? data;
 
   final bool isRoot;
 
-  late GraphNodeElement _element;
+  FocusNode? _focusNode;
 
-  GraphNodeElement get element => _element;
+  FocusNode get focusNode => _focusNode ??= FocusNode();
+
+  late GraphNodeElement<T> _element;
+
+  GraphNodeElement<T> get element => _element;
 
   List<GraphNode>? _prevList;
   List<GraphNode>? _nextList;
@@ -177,8 +195,28 @@ class GraphNode<T> {
     node.prevList.add(this);
   }
 
-  GraphNodeElement initialElement({required Widget child}) {
-    _element = GraphNodeElement(
+  void deleteNext(GraphNode node) {
+    if (_nextList?.contains(node) == true) {
+      _nextList!.remove(node);
+      node.prevList.remove(this);
+    }
+  }
+
+  void removeAllNext() {
+    _nextList?.clear();
+  }
+
+  void deleteSelf() {
+    for (var prevNode in prevList) {
+      if (prevNode.nextList.contains(this)) {
+        prevNode.nextList.remove(this);
+      }
+    }
+    prevList.clear();
+  }
+
+  GraphNodeElement<T> initialElement({required Widget child}) {
+    _element = GraphNodeElement<T>(
       node: this,
       widget: child,
     );
@@ -187,15 +225,17 @@ class GraphNode<T> {
 }
 
 class PreviewGraphNode extends GraphNode {
-  PreviewGraphNode() : super(data: '#preview') {
+  PreviewGraphNode({this.color}) : super() {
     _element = GraphNodeElement(
         node: this,
         widget: Container(
           width: 60,
           height: 24,
-          color: Colors.lightBlue,
+          color: color ?? Colors.lightBlue,
         ));
   }
+
+  final Color? color;
 }
 
 class GraphNodeFactory<T> {
@@ -203,17 +243,19 @@ class GraphNodeFactory<T> {
 
   final T Function() dataBuilder;
 
-  GraphNode createNode() => GraphNode(data: dataBuilder());
+  GraphNode<T> createNode() => GraphNode<T>(
+        data: dataBuilder(),
+      );
 }
 
-class GraphNodeElement {
+class GraphNodeElement<T> {
   GraphNodeElement(
       {required this.node,
       required this.widget,
       this.position = RelativeRect.fill,
       this.familyPosition = RelativeRect.fill});
 
-  final GraphNode node;
+  final GraphNode<T> node;
 
   final Widget widget;
 
@@ -237,4 +279,10 @@ extension RelativeRectEx on RelativeRect {
           {double? left, double? top, double? right, double? bottom}) =>
       RelativeRect.fromLTRB(left ?? this.left, top ?? this.top,
           right ?? this.right, bottom ?? this.bottom);
+
+  bool contain(Offset offset) =>
+      offset.dx >= left &&
+      offset.dx <= right &&
+      offset.dy >= top &&
+      offset.dy <= bottom;
 }
