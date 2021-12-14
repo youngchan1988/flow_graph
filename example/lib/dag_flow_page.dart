@@ -10,6 +10,8 @@ class DagFlowPage extends StatefulWidget {
 
 class _DagFlowPageState extends State<DagFlowPage> {
   late GraphNode root;
+  Axis _direction = Axis.horizontal;
+  bool _centerLayout = false;
 
   @override
   void initState() {
@@ -44,10 +46,69 @@ class _DagFlowPageState extends State<DagFlowPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Flow'),
+        title: const Text('Flow'),
+        actions: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Radio<Axis>(
+                value: Axis.horizontal,
+                groupValue: _direction,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _direction = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(
+                width: 8,
+              ),
+              const Text('横向'),
+              const SizedBox(
+                width: 16,
+              ),
+              Radio<Axis>(
+                value: Axis.vertical,
+                groupValue: _direction,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _direction = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(
+                width: 8,
+              ),
+              const Text('纵向'),
+              const VerticalDivider(
+                width: 32,
+              ),
+              Switch(
+                  value: _centerLayout,
+                  onChanged: (b) {
+                    setState(() {
+                      _centerLayout = b;
+                    });
+                  }),
+              const SizedBox(
+                width: 8,
+              ),
+              const Text('中间布局'),
+              const SizedBox(
+                width: 32,
+              ),
+            ],
+          )
+        ],
       ),
       body: FlowGraphView(
         root: root,
+        direction: _direction,
+        centerLayout: _centerLayout,
         builder: (context, node) {
           if (node.data == 'Eva') {
             return Container(

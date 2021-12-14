@@ -1,9 +1,9 @@
-import 'package:flow_graph/src/render/board_render.dart';
-import 'package:flow_graph/src/support/logger.dart';
+import 'package:flow_graph/src/graph_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'graph.dart';
+import 'render/preview_connect_render.dart';
 
 class DraggableFlowGraphView<T> extends StatefulWidget {
   const DraggableFlowGraphView({
@@ -11,6 +11,7 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
     required this.root,
     this.enableDelete = true,
     this.direction = Axis.horizontal,
+    this.centerLayout = false,
     required this.builder,
     this.willConnect,
     this.willAccept,
@@ -19,6 +20,7 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
   final GraphNode<T> root;
   final Axis direction;
   final bool enableDelete;
+  final bool centerLayout;
   final NodeWidgetBuilder<T> builder;
   final WillConnect<T>? willConnect;
   final WillAccept<T>? willAccept;
@@ -30,13 +32,16 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
 
 class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
   late Graph _graph;
-  final GlobalKey _dragTargetKey = GlobalKey();
+  final GlobalKey _graphViewKey = GlobalKey();
   RenderBox? _targetRender;
 
   RelativeRect? _currentPreviewNodePosition;
   GraphNode<T>? _currentPreviewEdgeNode;
   Offset _previewConnectStart = Offset.zero;
   Offset _previewConnectEnd = Offset.zero;
+
+  final _previewConnectRender = PreviewConnectRender();
+  final _controller = GraphViewController();
 
   @override
   Widget build(BuildContext context) {
@@ -65,30 +70,93 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
             builder: (context) {
               _graph = Graph(
                   nodes: _linearNodes(context, widget.root),
-                  direction: widget.direction);
+                  direction: widget.direction,
+                  centerLayout: widget.centerLayout);
               return DragTarget<GraphNodeFactory<T>>(
-                key: _dragTargetKey,
                 builder: (context, candidate, reject) {
-                  return GestureDetector(
-                    onTap: () {
-                      Focus.of(context).requestFocus(FocusNode());
+                  return GraphView(
+                    key: _graphViewKey,
+                    controller: _controller,
+                    graph: _graph,
+                    onPaint: (canvas) {
+                      if (_previewConnectStart.distance > 0 &&
+                          _previewConnectEnd.distance > 0) {
+                        _previewConnectRender.render(
+                            context: context,
+                            canvas: canvas,
+                            start: Offset(_previewConnectStart.dx,
+                                _previewConnectStart.dy),
+                            end: Offset(
+                                _previewConnectEnd.dx, _previewConnectEnd.dy),
+                            direction: _graph.direction);
+                      }
                     },
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: GraphBoard(
-                        graph: _graph,
-                        previewConnectStart: _previewConnectStart,
-                        previewConnectEnd: _previewConnectEnd,
-                      ),
-                    ),
                   );
+                  // return GestureDetector(
+                  //   onTap: () {
+                  //     Focus.of(context).requestFocus(FocusNode());
+                  //   },
+                  //   onPanUpdate: (details) {
+                  //     //limit pan position
+                  //     var graphSize = _graph.computeSize();
+                  //     var boardSize = (_boardKey.currentContext
+                  //                 ?.findRenderObject() as RenderBox?)
+                  //             ?.size ??
+                  //         Size.zero;
+                  //     double dx = 0, dy = 0;
+                  //     if (graphSize.width > boardSize.width) {
+                  //       dx = _boardPosition.dx + details.delta.dx;
+                  //       if (dx > 0) {
+                  //         dx = 0;
+                  //       } else if (dx <
+                  //           boardSize.width -
+                  //               graphSize.width -
+                  //               kMainAxisSpace) {
+                  //         // dx < -(graphSize.width - boardSize.width + kMainAxisSpace)
+                  //         dx = boardSize.width -
+                  //             graphSize.width -
+                  //             kMainAxisSpace;
+                  //       }
+                  //     }
+                  //     if (graphSize.height > boardSize.height) {
+                  //       dy = _boardPosition.dy + details.delta.dy;
+                  //       if (dy > 0) {
+                  //         dy = 0;
+                  //       } else if (dy <
+                  //           boardSize.height -
+                  //               graphSize.height -
+                  //               kMainAxisSpace) {
+                  //         //dy < -(graphSize.height - boardSize.height + kMainAxisSpace)
+                  //         dy = boardSize.height -
+                  //             graphSize.height -
+                  //             kMainAxisSpace;
+                  //       }
+                  //     }
+                  //
+                  //     setState(() {
+                  //       _boardPosition = Offset(dx, dy);
+                  //     });
+                  //   },
+                  //   child: ClipRect(
+                  //     child: GraphBoard(
+                  //       key: _boardKey,
+                  //       graph: _graph,
+                  //       previewConnectStart: _previewConnectStart,
+                  //       previewConnectEnd: _previewConnectEnd,
+                  //       position: _boardPosition,
+                  //     ),
+                  //   ),
+                  // );
                 },
                 onWillAccept: (factory) => factory != null,
                 onAccept: (factory) {
                   _acceptNode(context, factory.createNode());
                 },
+                onLeave: (factory) {
+                  _removePreviewEdge();
+                },
                 onMove: (details) {
-                  var target = _dragTargetKey.currentContext!.findRenderObject()
+                  var target = _graphViewKey.currentContext!.findRenderObject()
                       as RenderBox;
                   var localOffset = target.globalToLocal(details.offset);
                   _previewConnectEdge(context, localOffset);
@@ -152,17 +220,17 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
     }
   }
 
-  bool _canConnectToPosition(RelativeRect position, Offset offset) {
+  bool _canConnectToPosition(RelativeRect nodePosition, Offset point) {
     if (_graph.direction == Axis.horizontal) {
-      return offset.dx >= position.left &&
-          offset.dx <= position.right + kMainAxisSpace &&
-          offset.dy >= position.top &&
-          offset.dy <= position.bottom + kCrossAxisSpace;
+      return nodePosition
+          .offset(_controller.position)
+          .spreadSize(Size(kMainAxisSpace, kCrossAxisSpace))
+          .contains(point);
     } else if (_graph.direction == Axis.vertical) {
-      return offset.dx >= position.left &&
-          offset.dx <= position.right + kCrossAxisSpace &&
-          offset.dy >= position.top &&
-          offset.dy <= position.bottom + kMainAxisSpace;
+      return nodePosition
+          .offset(_controller.position)
+          .spreadSize(Size(kCrossAxisSpace, kMainAxisSpace))
+          .contains(point);
     }
     return false;
   }
@@ -193,6 +261,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
 
   void _initialNodeElement(BuildContext context, GraphNode<T> node) {
     node.initialElement(
+      overflowPadding: const EdgeInsets.all(14),
       child: _NodeWidget(
         node: node,
         graphDirection: widget.direction,
@@ -205,21 +274,23 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
         },
         onPreviewConnectStart: (position) {
           _targetRender ??=
-              _dragTargetKey.currentContext!.findRenderObject() as RenderBox;
+              _graphViewKey.currentContext!.findRenderObject() as RenderBox;
           _previewConnectStart = _targetRender!.globalToLocal(position);
         },
         onPreviewConnectMove: (position) {
           _targetRender ??=
-              _dragTargetKey.currentContext!.findRenderObject() as RenderBox;
+              _graphViewKey.currentContext!.findRenderObject() as RenderBox;
           setState(() {
             _previewConnectEnd = _targetRender!.globalToLocal(position);
           });
         },
         onPreviewConnectStop: (position) {
           _targetRender ??=
-              _dragTargetKey.currentContext!.findRenderObject() as RenderBox;
+              _graphViewKey.currentContext!.findRenderObject() as RenderBox;
+          var localPosition = _targetRender!.globalToLocal(position);
+          //concern board offset
           var targetNode =
-              _graph.nodeOf<T>(_targetRender!.globalToLocal(position));
+              _graph.nodeOf<T>(localPosition - _controller.position);
           if (targetNode != null &&
               widget.willAccept?.call(targetNode) == true) {
             //connect to node
@@ -291,6 +362,7 @@ class _NodeWidgetState extends State<_NodeWidget> {
       onTap: () {
         Focus.of(context).requestFocus(widget.node.focusNode);
       },
+      onPanUpdate: (details) {},
       onSecondaryTapUp: (details) {
         if (widget.enableDelete && !widget.node.isRoot) {
           showMenu(
@@ -350,10 +422,6 @@ class _NodeWidgetState extends State<_NodeWidget> {
                       right: 0,
                       child: Listener(
                         onPointerDown: (event) {
-                          debugInObject(
-                              object: this,
-                              message:
-                                  '====> Pointer Down: ${event.position} -- local: ${event.localPosition}');
                           var center = Offset(
                               event.position.dx - event.localPosition.dx + 10,
                               event.position.dy - event.localPosition.dy + 10);
@@ -374,22 +442,43 @@ class _NodeWidgetState extends State<_NodeWidget> {
                                 Theme.of(context).colorScheme.secondaryVariant,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.arrow_forward_rounded,
                             size: 12,
                           ),
                         ),
                       ),
                     )
-                  : Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.secondaryVariant,
-                          shape: BoxShape.circle,
+                  : Positioned(
+                      left: (boxSize.width - 20) / 2,
+                      bottom: 0,
+                      child: Listener(
+                        onPointerDown: (event) {
+                          var center = Offset(
+                              event.position.dx - event.localPosition.dx + 10,
+                              event.position.dy - event.localPosition.dy + 10);
+                          widget.onPreviewConnectStart?.call(center);
+                          _previewConnecting = true;
+                        },
+                        onPointerMove: (event) {
+                          widget.onPreviewConnectMove?.call(event.position);
+                        },
+                        onPointerUp: (event) {
+                          widget.onPreviewConnectStop?.call(event.position);
+                          _previewConnecting = false;
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color:
+                                Theme.of(context).colorScheme.secondaryVariant,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 12,
+                          ),
                         ),
-                        child: Icon(Icons.arrow_forward_rounded),
                       ),
                     )
           ],

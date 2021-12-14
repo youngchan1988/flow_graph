@@ -1,26 +1,31 @@
 import 'package:flutter/material.dart';
 
 import 'graph.dart';
-import 'render/board_render.dart';
+import 'graph_view.dart';
 
 class FlowGraphView extends StatelessWidget {
   const FlowGraphView(
       {Key? key,
       required this.root,
       this.direction = Axis.horizontal,
+      this.centerLayout = false,
       required this.builder})
       : super(key: key);
 
   final GraphNode root;
   final Axis direction;
+  final bool centerLayout;
   final NodeWidgetBuilder builder;
 
   @override
   Widget build(BuildContext context) {
-    var graph = Graph(nodes: _linearNodes(context, root), direction: direction);
+    var graph = Graph(
+        nodes: _linearNodes(context, root),
+        direction: direction,
+        centerLayout: centerLayout);
 
     return Padding(
-        padding: EdgeInsets.all(16), child: GraphBoard(graph: graph));
+        padding: const EdgeInsets.all(16), child: GraphView(graph: graph));
   }
 
   //bfs

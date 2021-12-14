@@ -49,7 +49,7 @@ class PreviewConnectRender {
     canvas.drawPath(triPath, paint);
   }
 
-  void rend(
+  void render(
       {required BuildContext context,
       required Canvas canvas,
       required Offset start,

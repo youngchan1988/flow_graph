@@ -8,6 +8,7 @@ typedef NodeWidgetBuilder<T> = Widget Function(
 
 typedef WillConnect<T> = bool Function(GraphNode<T> node);
 typedef WillAccept<T> = bool Function(GraphNode<T> node);
+typedef PaintCallback = void Function(Canvas);
 
 var kCrossAxisSpace = 48.0;
 var kMainAxisSpace = 144.0;
@@ -16,11 +17,13 @@ class Graph {
   Graph({
     required this.nodes,
     this.direction = Axis.horizontal,
+    this.centerLayout = false,
   })  : assert(nodes.isNotEmpty),
         root = nodes.first;
 
   final GraphNode root;
   final Axis direction;
+  final bool centerLayout;
   final List<GraphNode> nodes;
 
   List<Widget> get children => nodes.map((e) => e.element.widget).toList();
@@ -31,7 +34,7 @@ class Graph {
 
   GraphNode<T>? nodeOf<T>(Offset position) {
     for (var node in nodes) {
-      if (node.element.position.contain(position)) {
+      if (node.element.position.contains(position)) {
         return node as GraphNode<T>;
       }
     }
@@ -109,7 +112,7 @@ class Graph {
               canVisit = false;
               break;
             } else {
-              //已遍历过的节点，更新familyPostion 的区域
+              //已遍历过的节点，更新familyPosition 的区域
               if (direction == Axis.horizontal) {
                 familyCrossEnd =
                     math.max(familyCrossEnd, element.familyPosition.bottom);
@@ -139,15 +142,30 @@ class Graph {
         if (direction == Axis.horizontal) {
           familyPosition = currentElement.familyPosition
               .copyWith(right: familyMainEnd, bottom: familyCrossEnd);
+          var top = familyPosition.top;
+          if (centerLayout) {
+            top = familyPosition.top +
+                (familyPosition.bottom - familyPosition.top - nodeSize.height) /
+                    2;
+          }
+          currentElement.position = RelativeRect.fromLTRB(familyPosition.left,
+              top, familyPosition.left + nodeSize.width, top + nodeSize.height);
         } else if (direction == Axis.vertical) {
           familyPosition = currentElement.familyPosition
               .copyWith(right: familyCrossEnd, bottom: familyMainEnd);
+          var left = familyPosition.left;
+          if (centerLayout) {
+            left = familyPosition.left +
+                (familyPosition.right - familyPosition.left - nodeSize.width) /
+                    2;
+          }
+          currentElement.position = RelativeRect.fromLTRB(
+              left,
+              familyPosition.top,
+              left + nodeSize.width,
+              familyPosition.top + nodeSize.height);
         }
-        currentElement.position = RelativeRect.fromLTRB(
-            familyPosition.left,
-            familyPosition.top,
-            familyPosition.left + nodeSize.width,
-            familyPosition.top + nodeSize.height);
+
         currentElement.familyPosition = familyPosition;
 
         //visit node
@@ -215,11 +233,10 @@ class GraphNode<T> {
     prevList.clear();
   }
 
-  GraphNodeElement<T> initialElement({required Widget child}) {
+  GraphNodeElement<T> initialElement(
+      {required Widget child, EdgeInsets overflowPadding = EdgeInsets.zero}) {
     _element = GraphNodeElement<T>(
-      node: this,
-      widget: child,
-    );
+        node: this, widget: child, overflowPadding: overflowPadding);
     return _element;
   }
 }
@@ -252,12 +269,15 @@ class GraphNodeElement<T> {
   GraphNodeElement(
       {required this.node,
       required this.widget,
+      this.overflowPadding = EdgeInsets.zero,
       this.position = RelativeRect.fill,
       this.familyPosition = RelativeRect.fill});
 
   final GraphNode<T> node;
 
   final Widget widget;
+
+  final EdgeInsets overflowPadding;
 
   RelativeRect position;
 
@@ -280,9 +300,15 @@ extension RelativeRectEx on RelativeRect {
       RelativeRect.fromLTRB(left ?? this.left, top ?? this.top,
           right ?? this.right, bottom ?? this.bottom);
 
-  bool contain(Offset offset) =>
-      offset.dx >= left &&
-      offset.dx <= right &&
-      offset.dy >= top &&
-      offset.dy <= bottom;
+  bool contains(Offset point) =>
+      point.dx >= left &&
+      point.dx <= right &&
+      point.dy >= top &&
+      point.dy <= bottom;
+
+  RelativeRect offset(Offset offset) => RelativeRect.fromLTRB(
+      left + offset.dx, top + offset.dy, right + offset.dx, bottom + offset.dy);
+
+  RelativeRect spreadSize(Size size) => RelativeRect.fromLTRB(
+      left, top, right + size.width, bottom + size.height);
 }

@@ -1,34 +1,52 @@
-import 'dart:developer';
+import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 
-void debug({String? tag, String? message}) {
-  log(message ?? '', time: DateTime.now(), name: tag ?? 'Debug');
+var _logger = Logger(
+  level: kReleaseMode ? Level.info : Level.debug,
+  printer: PrettyPrinter(
+      stackTraceBeginIndex: 1,
+      methodCount: 2,
+      errorMethodCount: 8,
+      lineLength: 120,
+      colors: true,
+      printEmojis: true,
+      printTime: true),
+);
+
+void debug({String? tag, Object? object, String? message}) {
+  var tagStr = tag ?? '';
+  if (object != null) {
+    tagStr += '(${object.runtimeType.toString()})';
+  }
+  _logger.d('$tagStr: ${message ?? ''}');
 }
 
-void debugInObject({required Object object, String? message}) {
-  debug(tag: object.runtimeType.toString(), message: message);
+void warn({String? tag, Object? object, String? message}) {
+  var tagStr = tag ?? '';
+  if (object != null) {
+    tagStr += '(${object.runtimeType.toString()})';
+  }
+  _logger.w('$tagStr: ${message ?? ''}');
 }
 
-void warn({String? tag, String? message}) {
-  log(message ?? '', time: DateTime.now(), name: tag ?? 'Warn');
+void info({String? tag, Object? object, String? message}) {
+  var tagStr = tag ?? '';
+  if (object != null) {
+    tagStr += '(${object.runtimeType.toString()})';
+  }
+  _logger.i('$tagStr: ${message ?? ''}');
 }
 
-void warnInObject({required Object object, String? message}) {
-  warn(tag: object.runtimeType.toString(), message: message);
-}
+void error(
+    {String? tag,
+    Object? object,
+    String? message,
+    Object? err,
+    StackTrace? trace}) {
+  var tagStr = tag ?? '';
+  if (object != null) {
+    tagStr += '(${object.runtimeType.toString()})';
+  }
 
-void error({String? tag, String? message, Object? err, StackTrace? trace}) {
-  log(message ?? '',
-      time: DateTime.now(),
-      name: tag ?? 'Error',
-      error: err,
-      stackTrace: trace);
-}
-
-void errorInObject(
-    {required Object object, String? message, Object? err, StackTrace? trace}) {
-  error(
-      tag: object.runtimeType.toString(),
-      message: message,
-      err: err,
-      trace: trace);
+  _logger.e('$tagStr: ${message ?? ''}', err, trace);
 }

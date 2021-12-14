@@ -1,4 +1,3 @@
-import 'package:flow_graph/src/render/preview_connect_render.dart';
 import 'package:flow_graph/src/support/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -7,53 +6,52 @@ import '../graph.dart';
 import 'edge_render.dart';
 
 class GraphBoard extends MultiChildRenderObjectWidget {
-  GraphBoard(
-      {Key? key,
-      required this.graph,
-      this.previewConnectStart = Offset.zero,
-      this.previewConnectEnd = Offset.zero})
-      : super(key: key, children: graph.children);
+  GraphBoard({
+    Key? key,
+    required this.graph,
+    this.position = Offset.zero,
+    this.onPaint,
+  }) : super(key: key, children: graph.children);
 
   final Graph graph;
-  final Offset previewConnectStart;
-  final Offset previewConnectEnd;
+  final Offset position;
+  final PaintCallback? onPaint;
 
   @override
   RenderBox createRenderObject(BuildContext context) {
-    debugInObject(object: this, message: 'createRenderObject');
-    return _RenderLayoutBox(context: context, graph: graph);
+    return _RenderBoard(context: context, graph: graph, onPaint: onPaint);
   }
 
   @override
   void updateRenderObject(
-      BuildContext context, covariant _RenderLayoutBox renderObject) {
-    debugInObject(object: this, message: 'updateRenderObject');
+      BuildContext context, covariant _RenderBoard renderObject) {
     renderObject.graph = graph;
-    renderObject.previewConnectStart = previewConnectStart;
-    renderObject.previewConnectEnd = previewConnectEnd;
+    renderObject.positionOffset = position;
+    renderObject.onPaint = onPaint;
   }
 }
 
-class _RenderLayoutBox extends RenderBox
+class _RenderBoard extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, NodeParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, NodeParentData> {
-  _RenderLayoutBox({
+  _RenderBoard({
     required this.context,
     required Graph graph,
+    this.onPaint,
   }) : _graph = graph;
 
   final BuildContext context;
-  Offset _previewConnectStart = Offset.zero;
-  Offset _previewConnectEnd = Offset.zero;
+  PaintCallback? onPaint;
+
+  Offset _positionOffset = Offset.zero;
   late Graph _graph;
 
-  set previewConnectStart(Offset position) {
-    _previewConnectStart = position;
-  }
-
-  set previewConnectEnd(Offset position) {
-    _previewConnectEnd = position;
+  set positionOffset(Offset position) {
+    if (_positionOffset != position) {
+      _positionOffset = position;
+      markNeedsLayout();
+    }
   }
 
   set graph(Graph g) {
@@ -67,22 +65,21 @@ class _RenderLayoutBox extends RenderBox
 
   final _edgeRender = EdgeRender();
 
-  final _previewConnectRender = PreviewConnectRender();
-
   @override
   void performLayout() {
-    debugInObject(object: this, message: 'performLayout');
+    debug(object: this, message: 'performLayout');
     if (childCount == 0) {
       return;
     }
     //initial child element size
     var child = firstChild;
     var index = 0;
-    var screenSize = MediaQuery.of(context).size;
+    // var screenSize = MediaQuery.of(context).size;
     while (child != null) {
       final childData = child.parentData as NodeParentData;
 
-      child.layout(BoxConstraints.loose(screenSize), parentUsesSize: true);
+      child.layout(BoxConstraints.loose(constraints.biggest),
+          parentUsesSize: true);
       var childSize = child.size;
       var element = graph.nodeAt(index).element;
       element.position =
@@ -94,15 +91,8 @@ class _RenderLayoutBox extends RenderBox
 
     //compute graph nodes position
     graph.layout();
-    var graphSize = graph.computeSize();
-    debugInObject(object: this, message: 'GraphSize: $graphSize');
-    var canvasSize = Size(
-        graphSize.width > screenSize.width ? graphSize.width : screenSize.width,
-        graphSize.height > constraints.maxHeight
-            ? graphSize.height
-            : constraints.maxHeight);
-    // additionalConstraints = BoxConstraints.loose(canvasSize);
-    size = canvasSize;
+
+    size = constraints.biggest;
 
     //layout child's offset
     child = firstChild;
@@ -110,8 +100,9 @@ class _RenderLayoutBox extends RenderBox
     while (child != null) {
       final childData = child.parentData as NodeParentData;
       var element = graph.nodeAt(index).element;
-      childData.offset = Offset(element.position.left, element.position.top);
-
+      //add position offset to child
+      childData.offset = Offset(element.position.left + _positionOffset.dx,
+          element.position.top + _positionOffset.dy);
       child = childData.nextSibling;
       index++;
     }
@@ -119,24 +110,29 @@ class _RenderLayoutBox extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    debugInObject(object: this, message: 'paint');
+    debug(object: this, message: 'paint');
     var canvas = context.canvas;
 
     canvas.save();
     canvas.translate(offset.dx, offset.dy);
-    _edgeRender.render(context: this.context, canvas: canvas, graph: _graph);
+    _edgeRender.render(
+        context: this.context,
+        canvas: canvas,
+        graph: _graph,
+        offset: _positionOffset);
+    onPaint?.call(canvas);
     canvas.restore();
-    if (_previewConnectStart.distance > 0 && _previewConnectEnd.distance > 0) {
-      canvas.save();
-      canvas.translate(offset.dx, offset.dy);
-      _previewConnectRender.rend(
-          context: this.context,
-          canvas: canvas,
-          start: _previewConnectStart,
-          end: _previewConnectEnd,
-          direction: _graph.direction);
-      canvas.restore();
-    }
+    // if (_previewConnectStart.distance > 0 && _previewConnectEnd.distance > 0) {
+    //   canvas.save();
+    //   canvas.translate(offset.dx, offset.dy);
+    //   _previewConnectRender.render(
+    //       context: this.context,
+    //       canvas: canvas,
+    //       start: Offset(_previewConnectStart.dx, _previewConnectStart.dy),
+    //       end: Offset(_previewConnectEnd.dx, _previewConnectEnd.dy),
+    //       direction: _graph.direction);
+    //   canvas.restore();
+    // }
     defaultPaint(context, offset);
   }
 

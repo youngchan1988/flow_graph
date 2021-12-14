@@ -10,6 +10,8 @@ class DraggableNodePage extends StatefulWidget {
 
 class _DraggableNodePageState extends State<DraggableNodePage> {
   late GraphNode<FamilyNode> root;
+  Axis _direction = Axis.horizontal;
+  bool _centerLayout = false;
 
   @override
   void initState() {
@@ -24,13 +26,70 @@ class _DraggableNodePageState extends State<DraggableNodePage> {
       appBar: AppBar(
         title: const Text('Draggable Flow'),
         actions: [
-          TextButton(
-              onPressed: () {
-                setState(() {
-                  root.removeAllNext();
-                });
-              },
-              child: const Text('重置'))
+          Row(
+            children: [
+              Radio<Axis>(
+                value: Axis.horizontal,
+                groupValue: _direction,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _direction = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(
+                width: 8,
+              ),
+              const Text('横向'),
+              const SizedBox(
+                width: 16,
+              ),
+              Radio<Axis>(
+                value: Axis.vertical,
+                groupValue: _direction,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _direction = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(
+                width: 8,
+              ),
+              const Text('纵向'),
+              const VerticalDivider(
+                width: 32,
+              ),
+              Switch(
+                  value: _centerLayout,
+                  onChanged: (b) {
+                    setState(() {
+                      _centerLayout = b;
+                    });
+                  }),
+              const SizedBox(
+                width: 8,
+              ),
+              const Text('中间布局'),
+              const VerticalDivider(
+                width: 32,
+              ),
+              TextButton(
+                  onPressed: () {
+                    setState(() {
+                      root.removeAllNext();
+                    });
+                  },
+                  child: const Text('重置')),
+              const SizedBox(
+                width: 32,
+              ),
+            ],
+          )
         ],
       ),
       body: Row(
@@ -102,6 +161,8 @@ class _DraggableNodePageState extends State<DraggableNodePage> {
           Expanded(
             child: DraggableFlowGraphView<FamilyNode>(
               root: root,
+              direction: _direction,
+              centerLayout: _centerLayout,
               willConnect: (node) {
                 if (node.data?.singleChild == true) {
                   if (node.nextList.length == 1) {

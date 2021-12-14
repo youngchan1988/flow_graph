@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../graph.dart';
 
-const _kNodeEdgeSpacing = 12;
-
 double triangleArrowHeight = 8.0;
 
 class EdgeRender {
@@ -52,17 +50,26 @@ class EdgeRender {
   void render(
       {required BuildContext context,
       required Canvas canvas,
-      required Graph graph}) {
+      required Graph graph,
+      Offset offset = Offset.zero}) {
     graph.nodes.forEach((node) {
       var nodeElement = node.element;
       node.nextList.forEach((child) {
         _linePath.reset();
         var childElement = child.element;
         if (graph.direction == Axis.horizontal) {
-          var start = Offset(nodeElement.position.right - _kNodeEdgeSpacing,
-              (nodeElement.position.top + nodeElement.position.bottom) / 2);
-          var end = Offset(childElement.position.left + _kNodeEdgeSpacing,
-              (childElement.position.top + childElement.position.bottom) / 2);
+          var start = Offset(
+              nodeElement.position.right -
+                  nodeElement.overflowPadding.right +
+                  offset.dx,
+              (nodeElement.position.top + nodeElement.position.bottom) / 2 +
+                  offset.dy);
+          var end = Offset(
+              childElement.position.left +
+                  nodeElement.overflowPadding.left +
+                  offset.dx,
+              (childElement.position.top + childElement.position.bottom) / 2 +
+                  offset.dy);
           _linePath.moveTo(start.dx, start.dy);
           _linePath.cubicTo(
               start.dx + kMainAxisSpace / 2,
@@ -73,11 +80,17 @@ class EdgeRender {
               end.dy);
         } else if (graph.direction == Axis.vertical) {
           var start = Offset(
-              (nodeElement.position.left + nodeElement.position.right) / 2,
-              nodeElement.position.bottom - _kNodeEdgeSpacing);
+              (nodeElement.position.left + nodeElement.position.right) / 2 +
+                  offset.dx,
+              nodeElement.position.bottom -
+                  nodeElement.overflowPadding.bottom +
+                  offset.dy);
           var end = Offset(
-              (childElement.position.left + childElement.position.right) / 2,
-              childElement.position.top + _kNodeEdgeSpacing);
+              (childElement.position.left + childElement.position.right) / 2 +
+                  offset.dx,
+              childElement.position.top +
+                  nodeElement.overflowPadding.top +
+                  offset.dy);
           _linePath.moveTo(start.dx, start.dy);
           _linePath.cubicTo(
               start.dx,
