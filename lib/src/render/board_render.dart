@@ -1,4 +1,3 @@
-import 'package:flow_graph/src/support/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -67,14 +66,12 @@ class _RenderBoard extends RenderBox
 
   @override
   void performLayout() {
-    debug(object: this, message: 'performLayout');
     if (childCount == 0) {
       return;
     }
     //initial child element size
     var child = firstChild;
     var index = 0;
-    // var screenSize = MediaQuery.of(context).size;
     while (child != null) {
       final childData = child.parentData as NodeParentData;
 
@@ -110,7 +107,6 @@ class _RenderBoard extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    debug(object: this, message: 'paint');
     var canvas = context.canvas;
 
     canvas.save();
@@ -122,17 +118,6 @@ class _RenderBoard extends RenderBox
         offset: _positionOffset);
     onPaint?.call(canvas);
     canvas.restore();
-    // if (_previewConnectStart.distance > 0 && _previewConnectEnd.distance > 0) {
-    //   canvas.save();
-    //   canvas.translate(offset.dx, offset.dy);
-    //   _previewConnectRender.render(
-    //       context: this.context,
-    //       canvas: canvas,
-    //       start: Offset(_previewConnectStart.dx, _previewConnectStart.dy),
-    //       end: Offset(_previewConnectEnd.dx, _previewConnectEnd.dy),
-    //       direction: _graph.direction);
-    //   canvas.restore();
-    // }
     defaultPaint(context, offset);
   }
 

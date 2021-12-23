@@ -2,6 +2,7 @@ import 'package:flow_graph/src/graph_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'focus.dart';
 import 'graph.dart';
 import 'render/preview_connect_render.dart';
 
@@ -12,18 +13,38 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
     this.enableDelete = true,
     this.direction = Axis.horizontal,
     this.centerLayout = false,
+    this.padding = const EdgeInsets.all(16),
     required this.builder,
     this.willConnect,
     this.willAccept,
+    this.onConnect,
+    this.onAccept,
+    this.onDeleted,
+    this.onSelectChanged,
   }) : super(key: key);
 
   final GraphNode<T> root;
   final Axis direction;
   final bool enableDelete;
   final bool centerLayout;
+  final EdgeInsets padding;
   final NodeWidgetBuilder<T> builder;
+
+  ///Will add a connection to next node
   final WillConnect<T>? willConnect;
+
+  ///Will accept prev node connection;
   final WillAccept<T>? willAccept;
+
+  ///Connect to next node
+  final OnConnect<T>? onConnect;
+
+  ///Accept prev node connection;
+  final OnAccept<T>? onAccept;
+
+  final OnDeleted<T>? onDeleted;
+
+  final OnSelectChanged<T>? onSelectChanged;
 
   @override
   _DraggableFlowGraphViewState<T> createState() =>
@@ -43,10 +64,18 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
   final _previewConnectRender = PreviewConnectRender();
   final _controller = GraphViewController();
 
+  final GraphFocusManager _focusManager = GraphFocusManager();
+
+  @override
+  void dispose() {
+    _focusManager.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: widget.padding,
       child: RawKeyboardListener(
         focusNode: FocusNode(),
         onKey: (keyEvent) {
@@ -59,108 +88,61 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
                   setState(() {
                     n.deleteSelf();
                   });
+                  widget.onDeleted?.call(n as GraphNode<T>);
                   break;
                 }
               }
             }
           }
         },
-        child: Focus(
+        child: GraphFocus(
+          manager: _focusManager,
           child: Builder(
             builder: (context) {
               _graph = Graph(
                   nodes: _linearNodes(context, widget.root),
                   direction: widget.direction,
                   centerLayout: widget.centerLayout);
-              return DragTarget<GraphNodeFactory<T>>(
-                builder: (context, candidate, reject) {
-                  return GraphView(
-                    key: _graphViewKey,
-                    controller: _controller,
-                    graph: _graph,
-                    onPaint: (canvas) {
-                      if (_previewConnectStart.distance > 0 &&
-                          _previewConnectEnd.distance > 0) {
-                        _previewConnectRender.render(
-                            context: context,
-                            canvas: canvas,
-                            start: Offset(_previewConnectStart.dx,
-                                _previewConnectStart.dy),
-                            end: Offset(
-                                _previewConnectEnd.dx, _previewConnectEnd.dy),
-                            direction: _graph.direction);
-                      }
-                    },
-                  );
-                  // return GestureDetector(
-                  //   onTap: () {
-                  //     Focus.of(context).requestFocus(FocusNode());
-                  //   },
-                  //   onPanUpdate: (details) {
-                  //     //limit pan position
-                  //     var graphSize = _graph.computeSize();
-                  //     var boardSize = (_boardKey.currentContext
-                  //                 ?.findRenderObject() as RenderBox?)
-                  //             ?.size ??
-                  //         Size.zero;
-                  //     double dx = 0, dy = 0;
-                  //     if (graphSize.width > boardSize.width) {
-                  //       dx = _boardPosition.dx + details.delta.dx;
-                  //       if (dx > 0) {
-                  //         dx = 0;
-                  //       } else if (dx <
-                  //           boardSize.width -
-                  //               graphSize.width -
-                  //               kMainAxisSpace) {
-                  //         // dx < -(graphSize.width - boardSize.width + kMainAxisSpace)
-                  //         dx = boardSize.width -
-                  //             graphSize.width -
-                  //             kMainAxisSpace;
-                  //       }
-                  //     }
-                  //     if (graphSize.height > boardSize.height) {
-                  //       dy = _boardPosition.dy + details.delta.dy;
-                  //       if (dy > 0) {
-                  //         dy = 0;
-                  //       } else if (dy <
-                  //           boardSize.height -
-                  //               graphSize.height -
-                  //               kMainAxisSpace) {
-                  //         //dy < -(graphSize.height - boardSize.height + kMainAxisSpace)
-                  //         dy = boardSize.height -
-                  //             graphSize.height -
-                  //             kMainAxisSpace;
-                  //       }
-                  //     }
-                  //
-                  //     setState(() {
-                  //       _boardPosition = Offset(dx, dy);
-                  //     });
-                  //   },
-                  //   child: ClipRect(
-                  //     child: GraphBoard(
-                  //       key: _boardKey,
-                  //       graph: _graph,
-                  //       previewConnectStart: _previewConnectStart,
-                  //       previewConnectEnd: _previewConnectEnd,
-                  //       position: _boardPosition,
-                  //     ),
-                  //   ),
-                  // );
+              return GestureDetector(
+                onTap: () {
+                  GraphFocus.of(context).clearFocus();
+                  widget.onSelectChanged?.call(null);
                 },
-                onWillAccept: (factory) => factory != null,
-                onAccept: (factory) {
-                  _acceptNode(context, factory.createNode());
-                },
-                onLeave: (factory) {
-                  _removePreviewEdge();
-                },
-                onMove: (details) {
-                  var target = _graphViewKey.currentContext!.findRenderObject()
-                      as RenderBox;
-                  var localOffset = target.globalToLocal(details.offset);
-                  _previewConnectEdge(context, localOffset);
-                },
+                child: DragTarget<GraphNodeFactory<T>>(
+                  builder: (context, candidate, reject) {
+                    return GraphView(
+                      key: _graphViewKey,
+                      controller: _controller,
+                      graph: _graph,
+                      onPaint: (canvas) {
+                        if (_previewConnectStart.distance > 0 &&
+                            _previewConnectEnd.distance > 0) {
+                          _previewConnectRender.render(
+                              context: context,
+                              canvas: canvas,
+                              start: Offset(_previewConnectStart.dx,
+                                  _previewConnectStart.dy),
+                              end: Offset(
+                                  _previewConnectEnd.dx, _previewConnectEnd.dy),
+                              direction: _graph.direction);
+                        }
+                      },
+                    );
+                  },
+                  onWillAccept: (factory) => factory != null,
+                  onAccept: (factory) {
+                    _acceptNode(context, factory.createNode());
+                  },
+                  onLeave: (factory) {
+                    _removePreviewEdge();
+                  },
+                  onMove: (details) {
+                    var target = _graphViewKey.currentContext!
+                        .findRenderObject() as RenderBox;
+                    var localOffset = target.globalToLocal(details.offset);
+                    _previewConnectEdge(context, localOffset);
+                  },
+                ),
               );
             },
           ),
@@ -172,6 +154,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
   void _acceptNode(BuildContext context, GraphNode<T> node) {
     if (_currentPreviewEdgeNode != null) {
       _currentPreviewEdgeNode!.addNext(node);
+      widget.onConnect?.call(_currentPreviewEdgeNode!, node);
       _removePreviewEdge();
     }
   }
@@ -271,6 +254,10 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
           setState(() {
             node.deleteSelf();
           });
+          widget.onDeleted?.call(node);
+        },
+        onFocus: () {
+          widget.onSelectChanged?.call(node);
         },
         onPreviewConnectStart: (position) {
           _targetRender ??=
@@ -295,6 +282,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
               widget.willAccept?.call(targetNode) == true) {
             //connect to node
             node.addNext(targetNode);
+            widget.onAccept?.call(node, targetNode);
           }
           setState(() {
             _previewConnectStart = Offset.zero;
@@ -307,23 +295,25 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
 }
 
 class _NodeWidget extends StatefulWidget {
-  const _NodeWidget(
-      {Key? key,
-      required this.child,
-      this.enableDelete = true,
-      required this.node,
-      required this.graphDirection,
-      this.onDelete,
-      this.onPreviewConnectStart,
-      this.onPreviewConnectMove,
-      this.onPreviewConnectStop})
-      : super(key: key);
+  const _NodeWidget({
+    Key? key,
+    required this.child,
+    this.enableDelete = true,
+    required this.node,
+    required this.graphDirection,
+    this.onDelete,
+    this.onFocus,
+    this.onPreviewConnectStart,
+    this.onPreviewConnectMove,
+    this.onPreviewConnectStop,
+  }) : super(key: key);
 
   final Widget child;
   final bool enableDelete;
   final GraphNode node;
   final Axis graphDirection;
   final VoidCallback? onDelete;
+  final VoidCallback? onFocus;
   final void Function(Offset)? onPreviewConnectStart;
   final void Function(Offset)? onPreviewConnectMove;
   final void Function(Offset)? onPreviewConnectStop;
@@ -342,9 +332,11 @@ class _NodeWidgetState extends State<_NodeWidget> {
     _currentFocus = widget.node.focusNode.hasFocus;
     widget.node.focusNode.addListener(() {
       if (_currentFocus != widget.node.focusNode.hasFocus) {
-        setState(() {
-          _currentFocus = widget.node.focusNode.hasFocus;
-        });
+        if (mounted) {
+          setState(() {
+            _currentFocus = widget.node.focusNode.hasFocus;
+          });
+        }
       }
     });
     super.initState();
@@ -360,7 +352,8 @@ class _NodeWidgetState extends State<_NodeWidget> {
     }
     return GestureDetector(
       onTap: () {
-        Focus.of(context).requestFocus(widget.node.focusNode);
+        GraphFocus.of(context).requestFocus(widget.node.focusNode);
+        widget.onFocus?.call();
       },
       onPanUpdate: (details) {},
       onSecondaryTapUp: (details) {

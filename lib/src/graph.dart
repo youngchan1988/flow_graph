@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flow_graph/src/focus.dart';
 import 'package:flutter/material.dart';
 import 'package:ulid/ulid.dart';
 
@@ -8,6 +9,10 @@ typedef NodeWidgetBuilder<T> = Widget Function(
 
 typedef WillConnect<T> = bool Function(GraphNode<T> node);
 typedef WillAccept<T> = bool Function(GraphNode<T> node);
+typedef OnConnect<T> = void Function(GraphNode<T> prevNode, GraphNode<T> node);
+typedef OnAccept<T> = void Function(GraphNode<T> prevNode, GraphNode<T> node);
+typedef OnDeleted<T> = void Function(GraphNode<T> node);
+typedef OnSelectChanged<T> = void Function(GraphNode<T>?);
 typedef PaintCallback = void Function(Canvas);
 
 var kCrossAxisSpace = 48.0;
@@ -181,7 +186,7 @@ class GraphNode<T> {
   GraphNode(
       {this.data,
       this.isRoot = false,
-      FocusNode? focusNode,
+      GraphFocusNode? focusNode,
       List<GraphNode>? prevList,
       List<GraphNode>? nextList})
       : id = Ulid().hashCode,
@@ -194,9 +199,9 @@ class GraphNode<T> {
 
   final bool isRoot;
 
-  FocusNode? _focusNode;
+  GraphFocusNode? _focusNode;
 
-  FocusNode get focusNode => _focusNode ??= FocusNode();
+  GraphFocusNode get focusNode => _focusNode ??= GraphFocusNode();
 
   late GraphNodeElement<T> _element;
 
