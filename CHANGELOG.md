@@ -1,3 +1,7 @@
+## 0.0.6
+
+- FlowGraphView add onSelectedChanged
+
 ## 0.0.5
 - Add GraphFocus to replace Focus
 
