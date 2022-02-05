@@ -1,3 +1,7 @@
+// Copyright (c) 2022, the flow_graph project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'package:flow_graph/src/graph_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,6 +59,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
   late Graph _graph;
   final GlobalKey _graphViewKey = GlobalKey();
   RenderBox? _targetRender;
+  final _keyboardFocus = FocusNode();
 
   RelativeRect? _currentPreviewNodePosition;
   GraphNode<T>? _currentPreviewEdgeNode;
@@ -74,12 +79,13 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
 
   @override
   Widget build(BuildContext context) {
+    _keyboardFocus.requestFocus();
     return Padding(
       padding: widget.padding,
-      child: RawKeyboardListener(
-        focusNode: FocusNode(),
-        onKey: (keyEvent) {
-          if (keyEvent is RawKeyDownEvent) {
+      child: KeyboardListener(
+        focusNode: _keyboardFocus,
+        onKeyEvent: (keyEvent) {
+          if (keyEvent is KeyDownEvent) {
             if (widget.enableDelete &&
                     keyEvent.logicalKey == LogicalKeyboardKey.backspace ||
                 keyEvent.logicalKey == LogicalKeyboardKey.delete) {
@@ -92,7 +98,15 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
                   break;
                 }
               }
+              for (var e in _graph.edges) {
+                if (e.selected) {
+                  setState(() {
+                    e.deleteSelf();
+                  });
+                }
+              }
             }
+            _focusManager.clearFocus();
           }
         },
         child: GraphFocus(
@@ -163,7 +177,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
     node.addNext(
         PreviewGraphNode(color: Theme.of(context).colorScheme.secondary));
     setState(() {
-      _currentPreviewNodePosition = node.element.position;
+      _currentPreviewNodePosition = node.box.position;
       _currentPreviewEdgeNode = node;
     });
   }
@@ -193,7 +207,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
       }
       for (var n in _graph.nodes) {
         if (n is! PreviewGraphNode &&
-            _canConnectToPosition(n.element.position, offset) &&
+            _canConnectToPosition(n.box.position, offset) &&
             (widget.willConnect == null ||
                 widget.willConnect!(n as GraphNode<T>))) {
           _addPreviewEdge(context, n as GraphNode<T>);
@@ -243,9 +257,9 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
   }
 
   void _initialNodeElement(BuildContext context, GraphNode<T> node) {
-    node.initialElement(
+    node.buildBox(
       overflowPadding: const EdgeInsets.all(14),
-      child: _NodeWidget(
+      childWidget: _NodeWidget(
         node: node,
         graphDirection: widget.direction,
         enableDelete: widget.enableDelete,
@@ -279,7 +293,8 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
           var targetNode =
               _graph.nodeOf<T>(localPosition - _controller.position);
           if (targetNode != null &&
-              widget.willAccept?.call(targetNode) == true) {
+              widget.willAccept?.call(targetNode) == true &&
+              widget.willConnect?.call(node) == true) {
             //connect to node
             node.addNext(targetNode);
             widget.onAccept?.call(node, targetNode);
@@ -372,9 +387,7 @@ class _NodeWidgetState extends State<_NodeWidget> {
                   child: const Text('删除'),
                   value: 'delete',
                   onTap: () {
-                    setState(() {
-                      widget.onDelete?.call();
-                    });
+                    widget.onDelete?.call();
                   },
                 )
               ]);

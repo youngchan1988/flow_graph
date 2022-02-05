@@ -1,3 +1,7 @@
+// Copyright (c) 2022, the flow_graph project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'package:flutter/material.dart';
 
 import 'focus.dart';
@@ -55,10 +59,10 @@ class _FlowGraphViewState<T> extends State<FlowGraphView<T>> {
     );
   }
 
-//bfs
+  //bfs
   List<GraphNode> _linearNodes(BuildContext context, GraphNode<T> root) {
-    root.initialElement(
-        child: widget.enabled
+    root.buildBox(
+        childWidget: widget.enabled
             ? _NodeWidget(
                 child: widget.builder(context, root),
                 node: root,
@@ -76,8 +80,8 @@ class _FlowGraphViewState<T> extends State<FlowGraphView<T>> {
         for (var i = 0; i < currentNode.nextList.length; i++) {
           var node = currentNode.nextList[i];
           if (!visited.contains(node)) {
-            node.initialElement(
-                child: widget.enabled
+            node.buildBox(
+                childWidget: widget.enabled
                     ? _NodeWidget(
                         child: widget.builder(context, node as GraphNode<T>),
                         node: node,

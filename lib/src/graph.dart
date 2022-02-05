@@ -1,6 +1,11 @@
+// Copyright (c) 2022, the flow_graph project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:math' as math;
 
 import 'package:flow_graph/src/focus.dart';
+import 'package:flow_graph/src/render/edge_render.dart';
 import 'package:flutter/material.dart';
 import 'package:ulid/ulid.dart';
 
@@ -24,22 +29,39 @@ class Graph {
     this.direction = Axis.horizontal,
     this.centerLayout = false,
   })  : assert(nodes.isNotEmpty),
-        root = nodes.first;
+        root = nodes.first {
+    nodes.forEach((n1) {
+      n1.nextList.forEach((n2) {
+        if (n2 is! PreviewGraphNode) {
+          edges.add(GraphEdge(node1: n1, node2: n2, direction: direction));
+        }
+      });
+    });
+  }
 
   final GraphNode root;
   final Axis direction;
   final bool centerLayout;
   final List<GraphNode> nodes;
 
-  List<Widget> get children => nodes.map((e) => e.element.widget).toList();
+  List<GraphEdge> edges = [];
 
-  Size computeSize() => root.element.familySize;
+  List<Widget> get children {
+    var nodeWidgets = nodes.map((e) => e.box.widget).toList();
+    var edgeWidgets = edges.map((e) => e.edgetWidget).toList();
+    return List.from(edgeWidgets)..addAll(nodeWidgets);
+  }
 
-  GraphNode nodeAt(int index) => nodes[index];
+  Size computeSize() => root.box.familySize;
+
+  GraphElement elementAt(int index) {
+    var list = List<GraphElement>.from(edges)..addAll(nodes);
+    return list[index];
+  }
 
   GraphNode<T>? nodeOf<T>(Offset position) {
     for (var node in nodes) {
-      if (node.element.position.contains(position)) {
+      if (node.box.position.contains(position)) {
         return node as GraphNode<T>;
       }
     }
@@ -49,91 +71,88 @@ class Graph {
   void layout() {
     //reset nodes position
     for (var node in nodes) {
-      node.element.position = RelativeRect.fromLTRB(
-          root.element.position.left,
-          root.element.position.top,
-          node.element.size.width,
-          node.element.size.height);
-      node.element.familyPosition = node.element.position;
+      node.box.position = RelativeRect.fromLTRB(root.box.position.left,
+          root.box.position.top, node.box.size.width, node.box.size.height);
+      node.box.familyPosition = node.box.position;
     }
     //spread layout node
-    _dfsSpreadNodes(root.element);
+    _dfsSpreadNodes(root);
   }
 
   //dfs
-  void _dfsSpreadNodes(GraphNodeElement root) {
+  void _dfsSpreadNodes(GraphNode root) {
     //遍历路径
-    var walked = <GraphNodeElement>[root];
+    var walked = <GraphNode>[root];
     //已遍历的节点
-    var visited = <GraphNodeElement>[];
+    var visited = <GraphNode>[];
     while (walked.isNotEmpty) {
-      var currentElement = walked.last;
+      var current = walked.last;
       var canVisit = true;
       //初始family尾坐标，在遍历过程中不断更新这个值，最后确定最终的familyPosition
       double familyMainEnd = 0, familyCrossEnd = 0;
       if (direction == Axis.horizontal) {
-        familyMainEnd = currentElement.familyPosition.right;
-        familyCrossEnd = currentElement.familyPosition.bottom;
+        familyMainEnd = current.box.familyPosition.right;
+        familyCrossEnd = current.box.familyPosition.bottom;
       } else if (direction == Axis.vertical) {
-        familyMainEnd = currentElement.familyPosition.bottom;
-        familyCrossEnd = currentElement.familyPosition.right;
+        familyMainEnd = current.box.familyPosition.bottom;
+        familyCrossEnd = current.box.familyPosition.right;
       }
-      if (currentElement.node.nextList.isNotEmpty) {
+      if (current.nextList.isNotEmpty) {
         //初始出度节点的尾坐标，更新这个值纵向展开出度节点
         var currentCrossEnd = .0;
         if (direction == Axis.horizontal) {
-          currentCrossEnd = currentElement.familyPosition.top;
+          currentCrossEnd = current.box.familyPosition.top;
         } else if (direction == Axis.vertical) {
-          currentCrossEnd = currentElement.familyPosition.left;
+          currentCrossEnd = current.box.familyPosition.left;
         }
         //遍历出度节点
-        for (var node in currentElement.node.nextList) {
+        for (var node in current.nextList) {
+          assert(node.box != null);
           //if node is in currentNode's family
           //判断当前节点是否为该出度节点的"父节点"，
-          if (node.prevList.first == currentElement.node) {
-            var element = node.element;
-            if (!visited.contains(element)) {
+          if (node.prevList.first == current) {
+            if (!visited.contains(node)) {
               if (direction == Axis.horizontal) {
                 //horizontal spread
                 //横向展开节点
-                var left = currentElement.familyPosition.right + kMainAxisSpace;
+                var left = current.box.familyPosition.right + kMainAxisSpace;
                 //vertical spread
                 //纵向展开节点
                 var top = currentCrossEnd;
-                var size = element.size;
+                var size = node.box.size;
                 //更新当前遍历的familyPosition
-                element.familyPosition = RelativeRect.fromLTRB(
+                node.box.familyPosition = RelativeRect.fromLTRB(
                     left, top, left + size.width, top + size.height);
               } else if (direction == Axis.vertical) {
                 //horizontal spread
                 var left = currentCrossEnd;
                 //vertical spread
-                var top = currentElement.familyPosition.top + kMainAxisSpace;
-                var size = element.size;
-                element.familyPosition = RelativeRect.fromLTRB(
+                var top = current.box.familyPosition.top + kMainAxisSpace;
+                var size = node.box.size;
+                node.box.familyPosition = RelativeRect.fromLTRB(
                     left, top, left + size.width, top + size.height);
               }
-              walked.add(element);
+              walked.add(node);
               canVisit = false;
               break;
             } else {
               //已遍历过的节点，更新familyPosition 的区域
               if (direction == Axis.horizontal) {
                 familyCrossEnd =
-                    math.max(familyCrossEnd, element.familyPosition.bottom);
+                    math.max(familyCrossEnd, node.box.familyPosition.bottom);
                 familyMainEnd =
-                    math.max(familyMainEnd, element.familyPosition.right);
+                    math.max(familyMainEnd, node.box.familyPosition.right);
                 //update vertical size
                 currentCrossEnd =
-                    element.familyPosition.bottom + kCrossAxisSpace;
+                    node.box.familyPosition.bottom + kCrossAxisSpace;
               } else if (direction == Axis.vertical) {
                 familyCrossEnd =
-                    math.max(familyCrossEnd, element.familyPosition.right);
+                    math.max(familyCrossEnd, node.box.familyPosition.right);
                 familyMainEnd =
-                    math.max(familyMainEnd, element.familyPosition.bottom);
+                    math.max(familyMainEnd, node.box.familyPosition.bottom);
                 //update horizontal size
                 currentCrossEnd =
-                    element.familyPosition.right + kCrossAxisSpace;
+                    node.box.familyPosition.right + kCrossAxisSpace;
               }
             }
           }
@@ -142,10 +161,10 @@ class Graph {
       if (canVisit) {
         //update current node position & family position
         //当前节点的出度节点都遍历完成后，根据更新后的familyPosition，重新计算当前节点的自身position
-        var nodeSize = currentElement.size;
-        var familyPosition = currentElement.familyPosition;
+        var nodeSize = current.box.size;
+        var familyPosition = current.box.familyPosition;
         if (direction == Axis.horizontal) {
-          familyPosition = currentElement.familyPosition
+          familyPosition = current.box.familyPosition
               .copyWith(right: familyMainEnd, bottom: familyCrossEnd);
           var top = familyPosition.top;
           if (centerLayout) {
@@ -153,10 +172,10 @@ class Graph {
                 (familyPosition.bottom - familyPosition.top - nodeSize.height) /
                     2;
           }
-          currentElement.position = RelativeRect.fromLTRB(familyPosition.left,
-              top, familyPosition.left + nodeSize.width, top + nodeSize.height);
+          current.box.position = RelativeRect.fromLTRB(familyPosition.left, top,
+              familyPosition.left + nodeSize.width, top + nodeSize.height);
         } else if (direction == Axis.vertical) {
-          familyPosition = currentElement.familyPosition
+          familyPosition = current.box.familyPosition
               .copyWith(right: familyCrossEnd, bottom: familyMainEnd);
           var left = familyPosition.left;
           if (centerLayout) {
@@ -164,17 +183,14 @@ class Graph {
                 (familyPosition.right - familyPosition.left - nodeSize.width) /
                     2;
           }
-          currentElement.position = RelativeRect.fromLTRB(
-              left,
-              familyPosition.top,
-              left + nodeSize.width,
-              familyPosition.top + nodeSize.height);
+          current.box.position = RelativeRect.fromLTRB(left, familyPosition.top,
+              left + nodeSize.width, familyPosition.top + nodeSize.height);
         }
 
-        currentElement.familyPosition = familyPosition;
+        current.box.familyPosition = familyPosition;
 
         //visit node
-        visited.add(currentElement);
+        visited.add(current);
 
         walked.removeLast();
       }
@@ -182,7 +198,15 @@ class Graph {
   }
 }
 
-class GraphNode<T> {
+abstract class GraphElement {
+  GraphElement({GraphFocusNode? focusNode}) : _focusNode = focusNode;
+
+  GraphFocusNode? _focusNode;
+
+  GraphFocusNode get focusNode => _focusNode ??= GraphFocusNode();
+}
+
+class GraphNode<T> extends GraphElement {
   GraphNode(
       {this.data,
       this.isRoot = false,
@@ -190,22 +214,18 @@ class GraphNode<T> {
       List<GraphNode>? prevList,
       List<GraphNode>? nextList})
       : id = Ulid().hashCode,
-        _focusNode = focusNode,
         _prevList = prevList,
-        _nextList = nextList;
+        _nextList = nextList,
+        super(focusNode: focusNode);
 
   final int id;
   T? data;
 
   final bool isRoot;
 
-  GraphFocusNode? _focusNode;
+  late GraphNodeBox _box;
 
-  GraphFocusNode get focusNode => _focusNode ??= GraphFocusNode();
-
-  late GraphNodeElement<T> _element;
-
-  GraphNodeElement<T> get element => _element;
+  GraphNodeBox get box => _box;
 
   List<GraphNode>? _prevList;
   List<GraphNode>? _nextList;
@@ -238,26 +258,150 @@ class GraphNode<T> {
     prevList.clear();
   }
 
-  GraphNodeElement<T> initialElement(
-      {required Widget child, EdgeInsets overflowPadding = EdgeInsets.zero}) {
-    _element = GraphNodeElement<T>(
-        node: this, widget: child, overflowPadding: overflowPadding);
-    return _element;
+  void buildBox(
+      {required Widget childWidget,
+      EdgeInsets overflowPadding = EdgeInsets.zero}) {
+    _box = GraphNodeBox(widget: childWidget, overflowPadding: overflowPadding);
   }
 }
 
 class PreviewGraphNode extends GraphNode {
   PreviewGraphNode({this.color}) : super() {
-    _element = GraphNodeElement(
-        node: this,
+    _box = GraphNodeBox(
         widget: Container(
-          width: 60,
-          height: 24,
-          color: color ?? Colors.lightBlue,
-        ));
+      width: 60,
+      height: 24,
+      color: color ?? Colors.lightBlue,
+    ));
   }
 
   final Color? color;
+}
+
+class GraphEdge extends GraphElement with ChangeNotifier {
+  GraphEdge({required this.node1, required this.node2, required Axis direction})
+      : _direction = direction {
+    _edgeWidget = Edge(
+      graphEdge: this,
+    );
+  }
+
+  Axis _direction;
+  Axis get direction => _direction;
+
+  set direction(Axis axis) {
+    if (axis != _direction) {
+      _direction = axis;
+      notifyListeners();
+    }
+  }
+
+  final GraphNode node1;
+  final GraphNode node2;
+  late Edge _edgeWidget;
+  bool selected = false;
+
+  Offset _lineStart = Offset.zero;
+  Offset _lineEnd = Offset.zero;
+
+  Offset get lineStart => _lineStart;
+
+  Offset get lineEnd => _lineEnd;
+
+  Edge get edgetWidget => _edgeWidget;
+
+  Offset widgetOffset(Size originSize) {
+    var node1Box = node1.box;
+    var node2Box = node2.box;
+    if (direction == Axis.horizontal) {
+      if ((node2Box.position.top + node2Box.size.height / 2) <
+          (node1Box.position.top + node1Box.size.height / 2)) {
+        _lineStart = Offset(
+            0,
+            node1Box.position.top -
+                node2Box.position.top -
+                node2Box.size.height / 2 +
+                node1Box.size.height / 2 +
+                triangleArrowHeight / 2);
+        _lineEnd = Offset(
+            node2Box.position.left -
+                node1Box.position.right +
+                node2Box.overflowPadding.left +
+                node1Box.overflowPadding.right,
+            triangleArrowHeight / 2);
+        return Offset(
+            node1Box.position.right - node1Box.overflowPadding.right,
+            node2Box.position.top +
+                node2Box.size.height / 2 -
+                triangleArrowHeight / 2);
+      } else {
+        _lineStart = Offset(0, triangleArrowHeight / 2);
+        _lineEnd = Offset(
+            node2Box.position.left -
+                node1Box.position.right +
+                node2Box.overflowPadding.left +
+                node1Box.overflowPadding.right,
+            node2Box.position.top -
+                node1Box.position.top -
+                node1Box.size.height / 2 +
+                node2Box.size.height / 2 +
+                triangleArrowHeight / 2);
+        return Offset(
+            node1Box.position.right - node1Box.overflowPadding.right,
+            node1Box.position.top +
+                node1Box.size.height / 2 -
+                triangleArrowHeight / 2);
+      }
+    } else {
+      if ((node2Box.position.left + node2Box.size.width / 2) <
+          (node1Box.position.left + node1Box.size.width / 2)) {
+        _lineStart = Offset(
+            node1Box.position.left -
+                node2Box.position.left -
+                node2Box.size.width / 2 +
+                node1Box.size.width / 2 +
+                triangleArrowHeight / 2,
+            0);
+        _lineEnd = Offset(
+            triangleArrowHeight / 2,
+            node2Box.position.top -
+                node1Box.position.bottom +
+                node2Box.overflowPadding.top +
+                node2Box.overflowPadding.bottom);
+        return Offset(
+            node2Box.position.left +
+                node2Box.size.width / 2 -
+                triangleArrowHeight / 2,
+            node1Box.position.bottom - node1Box.overflowPadding.bottom);
+      } else {
+        _lineStart = Offset(triangleArrowHeight / 2, 0);
+        _lineEnd = Offset(
+            node2Box.position.left -
+                node1Box.position.left -
+                node1Box.size.width / 2 +
+                node2Box.size.width / 2 +
+                triangleArrowHeight / 2,
+            node2Box.position.top -
+                node1Box.position.bottom +
+                node2Box.overflowPadding.top +
+                node1Box.overflowPadding.bottom);
+        return Offset(
+            node1Box.position.left +
+                node1Box.size.width / 2 -
+                triangleArrowHeight / 2,
+            node1Box.position.bottom - node1Box.overflowPadding.bottom);
+      }
+    }
+  }
+
+  void updateEdge() {
+    notifyListeners();
+  }
+
+  void deleteSelf() {
+    node1._nextList?.remove(node2);
+    node2._prevList?.remove(node1);
+  }
 }
 
 class GraphNodeFactory<T> {
@@ -270,23 +414,32 @@ class GraphNodeFactory<T> {
       );
 }
 
-class GraphNodeElement<T> {
-  GraphNodeElement(
-      {required this.node,
-      required this.widget,
-      this.overflowPadding = EdgeInsets.zero,
-      this.position = RelativeRect.fill,
-      this.familyPosition = RelativeRect.fill});
-
-  final GraphNode<T> node;
+class GraphNodeBox with ChangeNotifier {
+  GraphNodeBox({
+    required this.widget,
+    this.overflowPadding = EdgeInsets.zero,
+  });
 
   final Widget widget;
 
   final EdgeInsets overflowPadding;
 
-  RelativeRect position;
+  RelativeRect _position = RelativeRect.fill;
 
-  RelativeRect familyPosition;
+  RelativeRect get position => _position;
+
+  set position(RelativeRect rect) {
+    _position = rect;
+    notifyListeners();
+  }
+
+  RelativeRect _familyPosition = RelativeRect.fill;
+
+  RelativeRect get familyPosition => _familyPosition;
+  set familyPosition(RelativeRect rect) {
+    _familyPosition = rect;
+    notifyListeners();
+  }
 
   Offset get centerPoint => Offset(
       position.left + (position.right - position.left) / 2,

@@ -1,3 +1,7 @@
+// Copyright (c) 2022, the flow_graph project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -74,14 +78,16 @@ class _RenderBoard extends RenderBox
     var index = 0;
     while (child != null) {
       final childData = child.parentData as NodeParentData;
-
       child.layout(BoxConstraints.loose(constraints.biggest),
           parentUsesSize: true);
       var childSize = child.size;
-      var element = graph.nodeAt(index).element;
-      element.position =
-          RelativeRect.fromLTRB(0, 0, childSize.width, childSize.height);
-      element.familyPosition = element.position;
+      var element = graph.elementAt(index);
+      if (element is GraphNode) {
+        element.box.position =
+            RelativeRect.fromLTRB(0, 0, childSize.width, childSize.height);
+        element.box.familyPosition = element.box.position;
+      }
+
       child = childData.nextSibling;
       index++;
     }
@@ -96,10 +102,17 @@ class _RenderBoard extends RenderBox
     index = 0;
     while (child != null) {
       final childData = child.parentData as NodeParentData;
-      var element = graph.nodeAt(index).element;
+      var element = graph.elementAt(index);
+      if (element is GraphNode) {
+        childData.offset = Offset(
+            element.box.position.left + _positionOffset.dx,
+            element.box.position.top + _positionOffset.dy);
+      } else if (element is GraphEdge) {
+        childData.offset = element.widgetOffset(child.size);
+        element.updateEdge();
+      }
       //add position offset to child
-      childData.offset = Offset(element.position.left + _positionOffset.dx,
-          element.position.top + _positionOffset.dy);
+
       child = childData.nextSibling;
       index++;
     }
