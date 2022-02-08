@@ -3,7 +3,7 @@ description: DAG graph on flutter.
 version: 0.0.7
 repository: https://github.com/youngchan1988/flow_graph
 issue_tracker: https://github.com/youngchan1988/flow_graph/issues
-publish_to: https://pub.dev
+#publish_to: https://pub.dev
 
 environment:
   sdk: ">=2.15.0 <3.0.0"
