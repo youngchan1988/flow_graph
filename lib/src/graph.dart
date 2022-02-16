@@ -19,6 +19,7 @@ typedef OnAccept<T> = void Function(GraphNode<T> prevNode, GraphNode<T> node);
 typedef OnDeleted<T> = void Function(GraphNode<T> node);
 typedef OnSelectChanged<T> = void Function(GraphNode<T>?);
 typedef PaintCallback = void Function(Canvas);
+typedef NodeSecondaryMenuItems = List<PopupMenuItem> Function(GraphNode);
 
 var kCrossAxisSpace = 48.0;
 var kMainAxisSpace = 144.0;

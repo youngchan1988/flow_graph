@@ -1,3 +1,7 @@
+## 0.0.8
+
+- DraggableFlowGraph add `onSecondaryTap` callback.
+
 ## 0.0.7
 
 - Support delete edge;

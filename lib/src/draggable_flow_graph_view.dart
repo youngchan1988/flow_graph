@@ -25,6 +25,7 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
     this.onAccept,
     this.onDeleted,
     this.onSelectChanged,
+    this.nodeSecondaryMenuItems,
   }) : super(key: key);
 
   final GraphNode<T> root;
@@ -40,15 +41,19 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
   ///Will accept prev node connection;
   final WillAccept<T>? willAccept;
 
-  ///Connect to next node
+  ///Connect to next node.
   final OnConnect<T>? onConnect;
 
-  ///Accept prev node connection;
+  ///Accept prev node connection.
   final OnAccept<T>? onAccept;
 
+  ///Keyboard delete or backspace event.
   final OnDeleted<T>? onDeleted;
 
   final OnSelectChanged<T>? onSelectChanged;
+
+  ///Show the node secondary menu items.
+  final NodeSecondaryMenuItems? nodeSecondaryMenuItems;
 
   @override
   _DraggableFlowGraphViewState<T> createState() =>
@@ -264,12 +269,9 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
         graphDirection: widget.direction,
         enableDelete: widget.enableDelete,
         child: widget.builder(context, node),
-        onDelete: () {
-          setState(() {
-            node.deleteSelf();
-          });
-          widget.onDeleted?.call(node);
-        },
+        secondaryMenuItems: widget.nodeSecondaryMenuItems == null
+            ? null
+            : () => widget.nodeSecondaryMenuItems!(node),
         onFocus: () {
           widget.onSelectChanged?.call(node);
         },
@@ -316,22 +318,22 @@ class _NodeWidget extends StatefulWidget {
     this.enableDelete = true,
     required this.node,
     required this.graphDirection,
-    this.onDelete,
     this.onFocus,
     this.onPreviewConnectStart,
     this.onPreviewConnectMove,
     this.onPreviewConnectStop,
+    this.secondaryMenuItems,
   }) : super(key: key);
 
   final Widget child;
   final bool enableDelete;
   final GraphNode node;
   final Axis graphDirection;
-  final VoidCallback? onDelete;
   final VoidCallback? onFocus;
   final void Function(Offset)? onPreviewConnectStart;
   final void Function(Offset)? onPreviewConnectMove;
   final void Function(Offset)? onPreviewConnectStop;
+  final List<PopupMenuItem> Function()? secondaryMenuItems;
 
   @override
   _NodeWidgetState createState() => _NodeWidgetState();
@@ -359,7 +361,7 @@ class _NodeWidgetState extends State<_NodeWidget> {
 
   @override
   Widget build(BuildContext context) {
-    var focusColor = Theme.of(context).colorScheme.secondaryVariant;
+    var focusColor = Theme.of(context).colorScheme.secondaryContainer;
     var renderBox = context.findRenderObject() as RenderBox?;
     var boxSize = Size.zero;
     if (renderBox != null) {
@@ -372,7 +374,9 @@ class _NodeWidgetState extends State<_NodeWidget> {
       },
       onPanUpdate: (details) {},
       onSecondaryTapUp: (details) {
-        if (widget.enableDelete && !widget.node.isRoot) {
+        var menuItems = widget.secondaryMenuItems?.call();
+
+        if (menuItems?.isNotEmpty == true && !widget.node.isRoot) {
           showMenu(
               context: context,
               elevation: 6,
@@ -382,15 +386,7 @@ class _NodeWidgetState extends State<_NodeWidget> {
                 details.globalPosition.dx,
                 details.globalPosition.dy,
               ),
-              items: [
-                PopupMenuItem(
-                  child: const Text('删除'),
-                  value: 'delete',
-                  onTap: () {
-                    widget.onDelete?.call();
-                  },
-                )
-              ]);
+              items: menuItems!);
         }
       },
       child: MouseRegion(
@@ -444,8 +440,9 @@ class _NodeWidgetState extends State<_NodeWidget> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).colorScheme.secondaryVariant,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -476,8 +473,9 @@ class _NodeWidgetState extends State<_NodeWidget> {
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).colorScheme.secondaryVariant,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(

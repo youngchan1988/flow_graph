@@ -6,7 +6,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flow_graph/src/focus.dart';
-import 'package:flow_graph/src/util/logger.dart';
 import 'package:flutter/material.dart';
 
 import '../graph.dart';
@@ -335,7 +334,6 @@ class _EdgePainter extends CustomPainter with ChangeNotifier {
   void onHoverEnter() {
     if (!_selected && !_hovered) {
       _setPainterColor(selectedColor.withAlpha(180));
-      debug(object: this, message: 'on hover enter');
       _hovered = true;
     }
   }
@@ -343,7 +341,6 @@ class _EdgePainter extends CustomPainter with ChangeNotifier {
   void onHoverLeave() {
     if (_hovered && !_selected) {
       _setPainterColor(color);
-      debug(object: this, message: 'on hover leave');
       _hovered = false;
     }
   }
@@ -351,9 +348,7 @@ class _EdgePainter extends CustomPainter with ChangeNotifier {
   @override
   bool? hitTest(Offset position) {
     var c = false;
-    debug(
-        object: this,
-        message: 'Hit test position: $position, s:$start => e:$end');
+
     if (start.dy == end.dy) {
       c = position.dx >= 0 &&
           position.dx <= size.width &&

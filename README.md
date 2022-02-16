@@ -53,6 +53,18 @@ DraggableFlowGraphView<FamilyNode>(
 			),
 		);
 	},
+	nodeSecondaryMenuItems: (node) {
+		return [
+			PopupMenuItem(
+			child: Text('Delete'),
+			onTap: () {
+				setter(() {
+					node.deleteSelf();
+				});
+			},
+			)
+		];
+	},
 )
 ```
 
