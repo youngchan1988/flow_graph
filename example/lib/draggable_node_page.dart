@@ -160,33 +160,50 @@ class _DraggableNodePageState extends State<DraggableNodePage> {
             width: 32,
           ),
           Expanded(
-            child: DraggableFlowGraphView<FamilyNode>(
-              root: root,
-              direction: _direction,
-              centerLayout: _centerLayout,
-              willConnect: (node) {
-                if (node.data?.singleChild == true) {
-                  if (node.nextList.length == 1) {
+            child: StatefulBuilder(
+              builder: (context, setter) {
+                return DraggableFlowGraphView<FamilyNode>(
+                  root: root,
+                  direction: _direction,
+                  centerLayout: _centerLayout,
+                  willConnect: (node) {
+                    if (node.data?.singleChild == true) {
+                      if (node.nextList.length == 1) {
+                        return false;
+                      } else {
+                        return true;
+                      }
+                    } else if (node.data != null && !node.data!.singleChild) {
+                      return true;
+                    }
                     return false;
-                  } else {
-                    return true;
-                  }
-                } else if (node.data != null && !node.data!.singleChild) {
-                  return true;
-                }
-                return false;
-              },
-              willAccept: (node) {
-                return node.data?.multiParent == true;
-              },
-              builder: (context, node) {
-                return Container(
-                  color: Colors.white60,
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    (node.data as FamilyNode).name,
-                    style: const TextStyle(color: Colors.black87, fontSize: 16),
-                  ),
+                  },
+                  willAccept: (node) {
+                    return node.data?.multiParent == true;
+                  },
+                  builder: (context, node) {
+                    return Container(
+                      color: Colors.white60,
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        (node.data as FamilyNode).name,
+                        style: const TextStyle(
+                            color: Colors.black87, fontSize: 16),
+                      ),
+                    );
+                  },
+                  nodeSecondaryMenuItems: (node) {
+                    return [
+                      PopupMenuItem(
+                        child: Text('Delete'),
+                        onTap: () {
+                          setter(() {
+                            node.deleteSelf();
+                          });
+                        },
+                      )
+                    ];
+                  },
                 );
               },
             ),
