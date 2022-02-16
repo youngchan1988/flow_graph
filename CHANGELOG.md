@@ -1,6 +1,6 @@
 ## 0.0.8
 
-- DraggableFlowGraph add `onSecondaryTap` callback.
+- DraggableFlowGraph add `nodeSecondaryMenuItems` param.
 
 ## 0.0.7
 
