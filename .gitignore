@@ -76,3 +76,4 @@ build/
 !**/ios/**/default.perspectivev3
 
 pushall.sh
+*.lock
