@@ -20,21 +20,27 @@ typedef OnDeleted<T> = void Function(GraphNode<T> node);
 typedef OnSelectChanged<T> = void Function(GraphNode<T>?);
 typedef PaintCallback = void Function(Canvas);
 typedef NodeSecondaryMenuItems = List<PopupMenuItem> Function(GraphNode);
+typedef OnEdgeColor<T> = Color Function(GraphNode<T> node1, GraphNode<T> node2);
 
 var kCrossAxisSpace = 48.0;
 var kMainAxisSpace = 144.0;
 
-class Graph {
+class Graph<T> {
   Graph({
     required this.nodes,
     this.direction = Axis.horizontal,
     this.centerLayout = false,
+    this.onEdgeColor,
   })  : assert(nodes.isNotEmpty),
         root = nodes.first {
     nodes.forEach((n1) {
       n1.nextList.forEach((n2) {
         if (n2 is! PreviewGraphNode) {
-          edges.add(GraphEdge(node1: n1, node2: n2, direction: direction));
+          edges.add(GraphEdge<T>(
+              node1: n1 as GraphNode<T>,
+              node2: n2 as GraphNode<T>,
+              direction: direction,
+              onEdgeColor: onEdgeColor));
         }
       });
     });
@@ -44,8 +50,9 @@ class Graph {
   final Axis direction;
   final bool centerLayout;
   final List<GraphNode> nodes;
+  final OnEdgeColor<T>? onEdgeColor;
 
-  List<GraphEdge> edges = [];
+  List<GraphEdge<T>> edges = [];
 
   List<Widget> get children {
     var nodeWidgets = nodes.map((e) => e.box.widget).toList();
@@ -60,7 +67,7 @@ class Graph {
     return list[index];
   }
 
-  GraphNode<T>? nodeOf<T>(Offset position) {
+  GraphNode<T>? nodeOf(Offset position) {
     for (var node in nodes) {
       if (node.box.position.contains(position)) {
         return node as GraphNode<T>;
@@ -240,23 +247,42 @@ class GraphNode<T> extends GraphElement {
   }
 
   void deleteNext(GraphNode node) {
-    if (_nextList?.contains(node) == true) {
-      _nextList!.remove(node);
-      node.prevList.remove(this);
-    }
+    // if (_nextList?.contains(node) == true) {
+    //   _nextList!.remove(node);
+    //   node._prevList?.remove(this);
+    // }
+    node.deleteSelf();
   }
 
-  void removeAllNext() {
+  void clearAllNext() {
+    if (_nextList?.isNotEmpty == true) {
+      for (var nextNode in _nextList!) {
+        if (nextNode._prevList?.contains(this) == true) {
+          nextNode._prevList!.remove(this);
+        }
+      }
+    }
     _nextList?.clear();
   }
 
   void deleteSelf() {
-    for (var prevNode in prevList) {
-      if (prevNode.nextList.contains(this)) {
-        prevNode.nextList.remove(this);
+    if (_prevList?.isNotEmpty == true) {
+      for (var prevNode in _prevList!) {
+        if (prevNode._nextList?.contains(this) == true) {
+          prevNode._nextList!.remove(this);
+        }
       }
     }
-    prevList.clear();
+    if (_nextList?.isNotEmpty == true) {
+      for (var nextNode in _nextList!) {
+        if (nextNode._prevList?.contains(this) == true) {
+          nextNode._prevList!.remove(this);
+        }
+      }
+    }
+
+    _prevList?.clear();
+    _nextList?.clear();
   }
 
   void buildBox(
@@ -279,11 +305,18 @@ class PreviewGraphNode extends GraphNode {
   final Color? color;
 }
 
-class GraphEdge extends GraphElement with ChangeNotifier {
-  GraphEdge({required this.node1, required this.node2, required Axis direction})
+class GraphEdge<T> extends GraphElement with ChangeNotifier {
+  GraphEdge(
+      {required this.node1,
+      required this.node2,
+      required Axis direction,
+      this.onEdgeColor})
       : _direction = direction {
     _edgeWidget = Edge(
       graphEdge: this,
+      onCustomEdgeColor: () {
+        return onEdgeColor?.call(node1, node2) ?? Colors.grey;
+      },
     );
   }
 
@@ -297,9 +330,11 @@ class GraphEdge extends GraphElement with ChangeNotifier {
     }
   }
 
-  final GraphNode node1;
-  final GraphNode node2;
+  final GraphNode<T> node1;
+  final GraphNode<T> node2;
   late Edge _edgeWidget;
+  final OnEdgeColor<T>? onEdgeColor;
+
   bool selected = false;
 
   Offset _lineStart = Offset.zero;
@@ -400,8 +435,7 @@ class GraphEdge extends GraphElement with ChangeNotifier {
   }
 
   void deleteSelf() {
-    node1._nextList?.remove(node2);
-    node2._prevList?.remove(node1);
+    node1.deleteNext(node2);
   }
 }
 

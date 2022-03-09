@@ -16,7 +16,8 @@ class FlowGraphView<T> extends StatefulWidget {
       this.centerLayout = false,
       this.enabled = true,
       required this.builder,
-      this.onSelectChanged})
+      this.onSelectChanged,
+      this.onEdgeColor})
       : super(key: key);
 
   final GraphNode<T> root;
@@ -25,6 +26,9 @@ class FlowGraphView<T> extends StatefulWidget {
   final bool enabled;
   final NodeWidgetBuilder<T> builder;
   final OnSelectChanged<T>? onSelectChanged;
+
+  ///Custom edge color
+  final OnEdgeColor<T>? onEdgeColor;
 
   @override
   _FlowGraphViewState<T> createState() => _FlowGraphViewState<T>();
@@ -44,7 +48,8 @@ class _FlowGraphViewState<T> extends State<FlowGraphView<T>> {
             var graph = Graph(
                 nodes: _linearNodes(context, widget.root),
                 direction: widget.direction,
-                centerLayout: widget.centerLayout);
+                centerLayout: widget.centerLayout,
+                onEdgeColor: widget.onEdgeColor);
 
             return GestureDetector(
               onTap: () {

@@ -116,12 +116,17 @@ class EdgeRender {
 
 class Edge extends StatefulWidget {
   const Edge(
-      {Key? key, required this.graphEdge, this.painter, this.enabled = true})
+      {Key? key,
+      required this.graphEdge,
+      this.painter,
+      this.enabled = true,
+      this.onCustomEdgeColor})
       : super(key: key);
 
   final CustomPainter? painter;
   final bool enabled;
   final GraphEdge graphEdge;
+  final Color Function()? onCustomEdgeColor;
 
   @override
   _EdgeState createState() => _EdgeState();
@@ -139,8 +144,10 @@ class _EdgeState extends State<Edge> {
   }
 
   Future _needBuild() async {
-    await Future.delayed(Duration(milliseconds: 300));
-    setState(() {});
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -185,9 +192,12 @@ class _EdgeState extends State<Edge> {
   Widget build(BuildContext context) {
     _painter ??= _EdgePainter(
         color: Colors.grey,
-        selectedColor: Theme.of(context).colorScheme.secondaryVariant,
+        selectedColor: Theme.of(context).colorScheme.secondaryContainer,
         width: 2,
         direction: widget.graphEdge.direction);
+    if (widget.onCustomEdgeColor != null) {
+      _painter!.color = widget.onCustomEdgeColor!();
+    }
     return GestureDetector(
       onTap: () {
         GraphFocus.of(context).requestFocus(widget.graphEdge.focusNode);
@@ -204,17 +214,17 @@ class _EdgeState extends State<Edge> {
 
 class _EdgePainter extends CustomPainter with ChangeNotifier {
   _EdgePainter(
-      {this.color = Colors.grey,
+      {Color color = Colors.grey,
       this.selectedColor = Colors.greenAccent,
       double width = 2,
       this.direction = Axis.horizontal,
       this.start = Offset.zero,
-      this.end = Offset.zero}) {
+      this.end = Offset.zero})
+      : _color = color {
     this.width = width;
     _setPainterColor(color);
   }
   final Color selectedColor;
-  final Color color;
 
   final _linePath = Path();
   final _paint = Paint()
@@ -225,6 +235,15 @@ class _EdgePainter extends CustomPainter with ChangeNotifier {
   final _trianglePaint = Paint()
     ..color = Colors.grey
     ..style = PaintingStyle.fill;
+
+  Color _color;
+
+  Color get color => _color;
+
+  set color(Color c) {
+    _color = c;
+    _setPainterColor(c);
+  }
 
   Offset start;
   Offset end;

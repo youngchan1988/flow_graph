@@ -11,26 +11,29 @@ import 'graph.dart';
 import 'render/preview_connect_render.dart';
 
 class DraggableFlowGraphView<T> extends StatefulWidget {
-  const DraggableFlowGraphView({
-    Key? key,
-    required this.root,
-    this.enableDelete = true,
-    this.direction = Axis.horizontal,
-    this.centerLayout = false,
-    this.padding = const EdgeInsets.all(16),
-    required this.builder,
-    this.willConnect,
-    this.willAccept,
-    this.onConnect,
-    this.onAccept,
-    this.onDeleted,
-    this.onSelectChanged,
-    this.nodeSecondaryMenuItems,
-  }) : super(key: key);
+  const DraggableFlowGraphView(
+      {Key? key,
+      required this.root,
+      this.enableDelete = true,
+      this.enabled = true,
+      this.direction = Axis.horizontal,
+      this.centerLayout = false,
+      this.padding = const EdgeInsets.all(16),
+      required this.builder,
+      this.willConnect,
+      this.willAccept,
+      this.onConnect,
+      this.onAccept,
+      this.onDeleted,
+      this.onSelectChanged,
+      this.nodeSecondaryMenuItems,
+      this.onEdgeColor})
+      : super(key: key);
 
   final GraphNode<T> root;
   final Axis direction;
   final bool enableDelete;
+  final bool enabled;
   final bool centerLayout;
   final EdgeInsets padding;
   final NodeWidgetBuilder<T> builder;
@@ -55,13 +58,16 @@ class DraggableFlowGraphView<T> extends StatefulWidget {
   ///Show the node secondary menu items.
   final NodeSecondaryMenuItems? nodeSecondaryMenuItems;
 
+  ///Custom edge color
+  final OnEdgeColor<T>? onEdgeColor;
+
   @override
   _DraggableFlowGraphViewState<T> createState() =>
       _DraggableFlowGraphViewState<T>();
 }
 
 class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
-  late Graph _graph;
+  late Graph<T> _graph;
   final GlobalKey _graphViewKey = GlobalKey();
   RenderBox? _targetRender;
   final _keyboardFocus = FocusNode();
@@ -89,43 +95,48 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
       padding: widget.padding,
       child: KeyboardListener(
         focusNode: _keyboardFocus,
-        onKeyEvent: (keyEvent) {
-          if (keyEvent is KeyDownEvent) {
-            if (widget.enableDelete &&
-                    keyEvent.logicalKey == LogicalKeyboardKey.backspace ||
-                keyEvent.logicalKey == LogicalKeyboardKey.delete) {
-              for (var n in _graph.nodes) {
-                if (n.focusNode.hasFocus && !n.isRoot) {
-                  setState(() {
-                    n.deleteSelf();
-                  });
-                  widget.onDeleted?.call(n as GraphNode<T>);
-                  break;
+        autofocus: true,
+        onKeyEvent: widget.enabled
+            ? (keyEvent) {
+                if (keyEvent is KeyDownEvent) {
+                  if (widget.enableDelete &&
+                          keyEvent.logicalKey == LogicalKeyboardKey.backspace ||
+                      keyEvent.logicalKey == LogicalKeyboardKey.delete) {
+                    for (var n in _graph.nodes) {
+                      if (n.focusNode.hasFocus && !n.isRoot) {
+                        setState(() {
+                          n.deleteSelf();
+                        });
+                        widget.onDeleted?.call(n as GraphNode<T>);
+                        break;
+                      }
+                    }
+                    for (var e in _graph.edges) {
+                      if (e.selected) {
+                        setState(() {
+                          e.deleteSelf();
+                        });
+                      }
+                    }
+                  }
+                  _focusManager.clearFocus();
                 }
               }
-              for (var e in _graph.edges) {
-                if (e.selected) {
-                  setState(() {
-                    e.deleteSelf();
-                  });
-                }
-              }
-            }
-            _focusManager.clearFocus();
-          }
-        },
+            : null,
         child: GraphFocus(
           manager: _focusManager,
           child: Builder(
             builder: (context) {
-              _graph = Graph(
+              _graph = Graph<T>(
                   nodes: _linearNodes(context, widget.root),
                   direction: widget.direction,
-                  centerLayout: widget.centerLayout);
+                  centerLayout: widget.centerLayout,
+                  onEdgeColor: widget.onEdgeColor);
               return GestureDetector(
                 onTap: () {
                   GraphFocus.of(context).clearFocus();
                   widget.onSelectChanged?.call(null);
+                  _keyboardFocus.requestFocus();
                 },
                 child: DragTarget<GraphNodeFactory<T>>(
                   builder: (context, candidate, reject) {
@@ -148,7 +159,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
                       },
                     );
                   },
-                  onWillAccept: (factory) => factory != null,
+                  onWillAccept: (factory) => widget.enabled && factory != null,
                   onAccept: (factory) {
                     _acceptNode(context, factory.createNode());
                   },
@@ -268,12 +279,14 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
         node: node,
         graphDirection: widget.direction,
         enableDelete: widget.enableDelete,
+        enabled: widget.enabled,
         child: widget.builder(context, node),
         secondaryMenuItems: widget.nodeSecondaryMenuItems == null
             ? null
             : () => widget.nodeSecondaryMenuItems!(node),
         onFocus: () {
           widget.onSelectChanged?.call(node);
+          _keyboardFocus.requestFocus();
         },
         onPreviewConnectStart: (position) {
           _targetRender ??=
@@ -292,8 +305,7 @@ class _DraggableFlowGraphViewState<T> extends State<DraggableFlowGraphView<T>> {
               _graphViewKey.currentContext!.findRenderObject() as RenderBox;
           var localPosition = _targetRender!.globalToLocal(position);
           //concern board offset
-          var targetNode =
-              _graph.nodeOf<T>(localPosition - _controller.position);
+          var targetNode = _graph.nodeOf(localPosition - _controller.position);
           if (targetNode != null &&
               widget.willAccept?.call(targetNode) == true &&
               widget.willConnect?.call(node) == true) {
@@ -316,6 +328,7 @@ class _NodeWidget extends StatefulWidget {
     Key? key,
     required this.child,
     this.enableDelete = true,
+    this.enabled = true,
     required this.node,
     required this.graphDirection,
     this.onFocus,
@@ -327,6 +340,7 @@ class _NodeWidget extends StatefulWidget {
 
   final Widget child;
   final bool enableDelete;
+  final bool enabled;
   final GraphNode node;
   final Axis graphDirection;
   final VoidCallback? onFocus;
@@ -373,22 +387,24 @@ class _NodeWidgetState extends State<_NodeWidget> {
         widget.onFocus?.call();
       },
       onPanUpdate: (details) {},
-      onSecondaryTapUp: (details) {
-        var menuItems = widget.secondaryMenuItems?.call();
+      onSecondaryTapUp: widget.enabled
+          ? (details) {
+              var menuItems = widget.secondaryMenuItems?.call();
 
-        if (menuItems?.isNotEmpty == true && !widget.node.isRoot) {
-          showMenu(
-              context: context,
-              elevation: 6,
-              position: RelativeRect.fromLTRB(
-                details.globalPosition.dx,
-                details.globalPosition.dy,
-                details.globalPosition.dx,
-                details.globalPosition.dy,
-              ),
-              items: menuItems!);
-        }
-      },
+              if (menuItems?.isNotEmpty == true && !widget.node.isRoot) {
+                showMenu(
+                    context: context,
+                    elevation: 6,
+                    position: RelativeRect.fromLTRB(
+                      details.globalPosition.dx,
+                      details.globalPosition.dy,
+                      details.globalPosition.dx,
+                      details.globalPosition.dy,
+                    ),
+                    items: menuItems!);
+              }
+            }
+          : null,
       child: MouseRegion(
         onEnter: (event) {
           setState(() {

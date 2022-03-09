@@ -1,6 +1,6 @@
 name: flow_graph
 description: DAG graph on flutter.
-version: 0.0.8
+version: 0.0.9
 repository: https://github.com/youngchan1988/flow_graph
 issue_tracker: https://github.com/youngchan1988/flow_graph/issues
 

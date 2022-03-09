@@ -1,22 +1,28 @@
 ![](https://tva1.sinaimg.cn/large/008i3skNgy1gz2lx8ljszj30qs0atdfy.jpg)
 
 ## Features
+
 - Support draggable node;
 - Support delete node & edge;
 - Support horizontal & vertical layout;
 
 ## Getting started
+
 ```yaml
 dependencies:
-    flow_graph: ^0.0.7
+    flow_graph: ^0.0.9
 ```
+
 ## Screen shot
+
 ![](https://tva1.sinaimg.cn/large/008i3skNgy1gz2tlptkq9j31050u0ta0.jpg)
 
 ![](https://tva1.sinaimg.cn/large/008i3skNgy1gz2tpst6n1g30qo0f0wmy.gif)
 
 ## Usage
+
 Flow graph:
+
 ```dart
 FlowGraphView(
 	root: root,
@@ -36,6 +42,7 @@ FlowGraphView(
 ```
 
 Draggable flow graph:
+
 ```dart
 DraggableFlowGraphView<FamilyNode>(
 	root: root,

@@ -82,7 +82,7 @@ class _DraggableNodePageState extends State<DraggableNodePage> {
               TextButton(
                   onPressed: () {
                     setState(() {
-                      root.removeAllNext();
+                      root.clearAllNext();
                     });
                   },
                   child: const Text('重置')),
@@ -203,6 +203,14 @@ class _DraggableNodePageState extends State<DraggableNodePage> {
                         },
                       )
                     ];
+                  },
+                  onEdgeColor: (n1, n2) {
+                    if (n1.data?.singleChild == true &&
+                        n2.data?.multiParent == true) {
+                      return Colors.blueAccent;
+                    } else {
+                      return Colors.grey;
+                    }
                   },
                 );
               },

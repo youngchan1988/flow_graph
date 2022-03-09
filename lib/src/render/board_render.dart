@@ -108,7 +108,7 @@ class _RenderBoard extends RenderBox
             element.box.position.left + _positionOffset.dx,
             element.box.position.top + _positionOffset.dy);
       } else if (element is GraphEdge) {
-        childData.offset = element.widgetOffset(child.size);
+        childData.offset = element.widgetOffset(child.size) + _positionOffset;
         element.updateEdge();
       }
       //add position offset to child

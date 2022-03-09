@@ -1,3 +1,10 @@
+## 0.0.9
+
+- fix: Request keyboard focus.
+- fix: Delete node & edge wrong.
+- Support custom edge color.
+- DraggableFlowGraphView add `enabled` attribute.
+
 ## 0.0.8
 
 - DraggableFlowGraph add `nodeSecondaryMenuItems` param.
