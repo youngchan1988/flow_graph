@@ -1,12 +1,11 @@
 name: flow_graph
 description: DAG graph on flutter.
-version: 0.0.10
+version: 0.0.11
 repository: https://github.com/youngchan1988/flow_graph
 issue_tracker: https://github.com/youngchan1988/flow_graph/issues
 
 environment:
-#  sdk: ">=3.1.2 <4.0.0"
-  sdk: ">=2.19.5 <3.0.0"
+  sdk: ">=3.1.2 <4.0.0"
 #  flutter: ">=1.17.0"
 
 dependencies:
